@@ -1,0 +1,210 @@
+---
+title: "Jul29_WGBS2021_Stages"
+author: "James Kho"
+date: "7/29/2022"
+output: html_document
+---
+This document will go over the basic pathway for methylation analysis going from an aligned and sorted methylation bam file to Differential methylation analysis. All the process will be through the R package "methylKit".
+
+Link to reference vignette: https://compgenomr.github.io/book/bsseq.html
+
+Link to WGBS workshop walkthrough: 
+
+# 1.0 Reading methylation data
+```{r}
+library("methylKit")
+``` 
+
+Read methylation raw data from bismark using 'processBismarkAln' function. 
+*Not in chunk since it takes time to process all of the samples in. Only need to process alignment once.
+
+methraw1 = processBismarkAln(location = "Ch01WGBS_Sorted.bam", sample.id = "Ch1WGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+methraw2 = processBismarkAln(location = "Ch02WGBS_Sorted.bam", sample.id = "Ch2WGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+methraw3 = processBismarkAln(location = "Ch03WGBS_Sorted.bam", sample.id = "Ch3WGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+methraw10 = processBismarkAln(location = "Ch010WGBS_Sorted.bam", sample.id = "Ch10WGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+methraw11 = processBismarkAln(location = "Ch011WGBS_Sorted.bam", sample.id = "Ch11WGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+methraw12 = processBismarkAln(location = "Ch012WGBS_Sorted.bam", sample.id = "Ch12WGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+methraw28 = processBismarkAln(location = "Ch028WGBS_Sorted.bam", sample.id = "Ch28WGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+methraw29 = processBismarkAln(location = "Ch029WGBS_Sorted.bam", sample.id = "Ch29WGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+methraw30 = processBismarkAln(location = "Ch030WGBS_Sorted.bam", sample.id = "Ch30WGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+methraw42 = processBismarkAln(location = "Ch042WGBS_Sorted.bam", sample.id = "Ch42WGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+methraw1A = processBismarkAln(location = "Ch1AWGBS_Sorted.bam", sample.id = "Ch1AWGBS", assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", read.context = "CpG", save.folder = "methylkit")
+
+
+```{r}
+## Create methylkit object - Age 4 comparison
+# Next let's make a file list showing the path to the processed files!
+file.list2 = list (file.path("MethylKitInput", "HPEI_Age4_0020_CpG.txt"), 
+                   file.path("MethylKitInput", "HPEI_Age4_0033_CpG.txt"), 
+                   file.path("MethylKitInput", "HPEI_Age4_0035_CpG.txt"),
+                   file.path("MethylKitInput", "HPEI_Age4_0049_CpG.txt"), 
+                   file.path("MethylKitInput", "HPEI_Age4_0055_CpG.txt"), 
+                   file.path("MethylKitInput", "HPEI_Age4_0070_CpG.txt"), 
+                   file.path("MethylKitInput", "MethylWild2023_Age4_HIP_93_CpG.txt"),
+                   file.path("MethylKitInput", "MethylWild2023_Age4_HIP_5490_CpG.txt"), 
+                   file.path("MethylKitInput", "MethylWild2023_Age4_HIP_5498_CpG.txt"), 
+                   file.path("MethylKitInput", "MethylWild2023_Age4_HIP_5513_CpG.txt"),
+                   file.path("MethylKitInput", "MethylWild2023_Age4_HIP_5520_CpG.txt")) 
+
+# Now we need to read the files using 'methRead'. Each file contains the methylation calls for a given sample
+myobj3 = methRead(file.list2, sample.id = list("HPEI_Age4_0020", "HPEI_Age4_0033", "HPEI_Age4_0035", "HPEI_Age4_0049", "HPEI_Age4_0055", "HPEI_Age4_0070",  "MethylWild2023_Age4_HIP_93", "MethylWild2023_Age4_HIP_5490", "MethylWild2023_Age4_HIP_5498", "MethylWild2023_Age4_HIP_5513", "MethylWild2023_Age4_HIP_5520"), assembly = "GCF_009819705.1_fHipHip1.pri_genomic", treatment = c(1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2), context = "CpG", mincov = 10)
+```
+
+myobj4 = methRead(file.list2, sample.id = list("Ch4WGBS", "Ch5WGBS", "Ch6WGBS", "Ch22WGBS", "Ch23WGBS", "Ch24WGBS"), assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", treatment = c(1, 1, 1, 2, 2, 2), context = "CpG", dbtype = "tabix", dbdir = "methylDB", mincov = 10)
+
+```{r}
+## Create methylkit object - Age 8 comparison
+# Next let's make a file list showing the path to the processed files!
+file.list2 = list (file.path("MethylKitInput", "HPEI_Age8_0013_CpG.txt"), 
+                   file.path("MethylKitInput", "HPEI_Age8_0025_CpG.txt"), 
+                   file.path("MethylKitInput", "HPEI_Age8_0032_CpG.txt"),
+                   file.path("MethylKitInput", "HPEI_Age8_0046_CpG.txt"), 
+                   file.path("MethylKitInput", "HPEI_Age8_0056_CpG.txt"), 
+                   file.path("MethylKitInput", "HPEI_Age8_0071_CpG.txt"), 
+                   file.path("MethylKitInput", "MethylWild2023_Age8_HYP_250_CpG.txt"),
+                   file.path("MethylKitInput", "MethylWild2023_Age8_HYP_530_CpG.txt"), 
+                   file.path("MethylKitInput", "MethylWild2023_Age8_HYP_593_CpG.txt"), 
+                   file.path("MethylKitInput", "MethylWild2023_Age8_HYP_618_CpG.txt"),
+                   file.path("MethylKitInput", "MethylWild2023_Age8_HYP_90_CpG.txt")) 
+
+# Now we need to read the files using 'methRead'. Each file contains the methylation calls for a given sample
+myobj3 = methRead(file.list2, sample.id = list("HPEI_Age8_0013", "HPEI_Age8_0025", "HPEI_Age8_0032", "HPEI_Age8_0046", "HPEI_Age8_0056", "HPEI_Age8_0071",  "MethylWild2023_Age8_HIP_250", "MethylWild2023_Age8_HIP_530", "MethylWild2023_Age8_HIP_593", "MethylWild2023_Age8_HIP_618", "MethylWild2023_Age8_HIP_90"), assembly = "GCF_009819705.1_fHipHip1.pri_genomic", treatment = c(1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2), context = "CpG", mincov = 10)
+```
+
+# 2.0 MethylKit quality control
+```{r}
+# At this point we can also do quality check before proceeding with the rest of the analyses. There are two different QCs that I recommend.The first is methylation distribution.
+
+getMethylationStats(myobj3[[8]], plot=TRUE, both.strands=FALSE) #Replace [[2]] with sample of interest!
+
+#This looks at the distribution of methylation values. We expect a bimodal distribution where most CpGs have either high methylation or low methylation. Lack of bimodal suggests poor experimental quality including issues with bisulfite treatments. 
+
+#Next we have CpG coverage. Bases with unusually high coverage are of concern as it can indicate PCR bias. Here we use 'getCoverageStats'.
+
+getCoverageStats(myobj3[[8]], plot=TRUE, both.strands=FALSE) #Again, replace [[2]] with sample of interest.
+
+#If we need to filter samples based on read coverage, then use 'filterByCoverage'. The function below discards bases that have 10x> coverage and those that have more than 99.9th percentile of coverage in each sample.
+filtered.myobj=filterByCoverage(myobj3,lo.count=10,lo.perc=NULL,hi.count=NULL,hi.perc=99.9)
+
+#The vignette also recommends normalizing coverage distributions across samples, which is always a great idea so below is the code:
+normalized.myobj=normalizeCoverage(filtered.myobj)
+
+# After looking through all the QC filters, next we want to merge the samples into one data object using the 'unite' function that creates a new object using the CpGs covered in each sample.
+meth = unite(normalized.myobj, destrand = TRUE, save.db = TRUE)
+```
+
+Next we filter CpGs. The goal is to remove CpGs that are not variable before doing DM analysis as well as removing Cs that are potentially C -> T mutations (if known! I don't have that info for my samples so I will skip it). Let's do filtering based on variation first:
+
+```{r}
+pm = percMethylation(meth) # Get percent methylation matrix first.
+
+mds = matrixStats::rowSds(pm) # Calculate standard deviation of CpGs
+
+head(meth[mds>20,]) # Filter based on standard deviation.
+
+hist(mds, col="cornflowerblue", xlab="Std. dev. per CpG")
+```
+
+#3.0 Clustering samples
+
+After filtering, we can use 'clusterSamples' to group data points by their similarity. This can be skipped depending on what you need as the PCA will show a similar pattern (or should).
+
+```{r}
+# This function will cluster samples and draw a dendogram. It uses correlation distance (more info in vignette). The tree will be drawn using the "ward" method or "bottom up" approach. 
+
+clusterSamples(meth, dist="correlation", method="ward.D2", plot=TRUE)
+
+hc=clusterSamples(meth, dist="correlation", method="ward.D2", plot=FALSE)
+
+```
+We can also do PCA analysis on our samples. First let's plot for importance of components, then plot PC1 and PC2.
+
+```{r}
+PCASamples(meth, screeplot = TRUE)
+
+PCASamples(meth)
+```
+
+#4.0 Differential methylation analysis
+
+Now we will look for differential methylated CpG sites (DMCs) and regions (interesting regions or DMRs). The function used here will be 'calculateDiffMeth' which employs Fisher's exact test to compare test samples to a control or to another treatment. You can pool samples from a treatment together but it will not take into account biological variability between replicates.
+
+After calculating the P-values for all bases using 'calculateDiffMeth', the next step is to filter to get differentially methylated CpGs. This is done via the 'getMethylDiff' function or filtering through '[]' function. Here I used 'getMethylDiff' as it was showcased in the workshop I attended. See vignette for example of '[]' usage.
+
+```{r}
+#Perform differential methylation analysis
+myDiff = calculateDiffMeth(meth)
+
+myDiff25p.hyper=getMethylDiff(myDiff,difference=10,qvalue=0.01,type="hyper")
+myDiff25p.hypo=getMethylDiff(myDiff,difference=10,qvalue=0.01,type="hypo")
+myDiff25p=getMethylDiff(myDiff,difference=10,qvalue=0.01)
+
+bedgraph(myDiff25p.hyper, file.name = "Sdev12_age8_CpG_hyper.bedgraph", col.name = "qvalue")
+bedgraph(myDiff25p.hypo, file.name = "Sdev12_age8_CpG_hypo.bedgraph", col.name = "qvalue")
+bedgraph(myDiff25p, file.name = "Sdev12_age8_CpG_all.bedgraph", col.name = "qvalue")
+
+DiffMethPerChrS2 = diffMethPerChr(myDiff,plot=FALSE,qvalue.cutoff=0.01, meth.cutoff=5)
+
+write.csv(DiffMethPerChrS2, file = "DiffMethPerChr_age8.csv")
+```
+
+
+###myDiff.all = getMethylDiff(myDiff, qvalue = 0.05, difference = 10, type = "all") #You can change the qvalue and methylation difference (percentage) to fit your data.
+bedgraph(myDiff.all, file.name = "Sdev23_T11_12h_all_CpG.bedgraph", col.name = "qvalue") # Generate Bedgraphs for visualization in IGV or other software!
+
+myDiff.hyper2 = getMethylDiff(myDiff, qvalue = 0.05, difference = 10, type = "hyper") 
+bedgraph(myDiff.hyper2, file.name = "Sdev23_T11_6h_hyper.CpG2.bedgraph", col.name = "qvalue")
+###
+
+myDiff.hypo2 = getMethylDiff(myDiff2, qvalue = 0.05, difference = 10, type = "hypo")
+bedgraph(myDiff.hypo2, file.name = "stages2-3_hypo.CpG2.bedgraph", col.name = "qvalue")
+
+
+Next we do the same thing but for DMRs. To do this we have to first bin the results using "tileMethylCounts" and specify the size of the region. It's important to look for DMRs as not all the CpGs will be covered in all samples at a base-pair level (i.e. base pairs with low coverage can skew the power of tests).
+
+Here we tile the whole genome to tiles with predefined lengths but you can also use pre-defined regions such as promoters or CpG islands if known. This is done by adding up C and T counts from each covered cytosine and returning a total C and T count for each region (from vignette). Info on looking at particular regions is found on vignette but you use the R pacakage 'genomation' to provide the location of specific regions. 
+```{r}
+#Bin results to find DMRs
+tiles2 = tileMethylCounts(normalized.myobj, win.size = 1000, step.size = 1000, cov.bases = 10)
+
+meth.tiles = unite(tiles2, destrand = TRUE, save.db = TRUE)
+
+myDiff.tiles2 = calculateDiffMeth(meth.tiles)
+myDiff.tiles2.all = getMethylDiff(myDiff.tiles2, qvalue = 0.1, difference = 10, type = "all")
+bedgraph(myDiff.tiles2.all, file.name = "Sdev12_T11_12h_DMR_All.bedgraph", col.name = "qvalue")
+
+myDiff.tiles2.hyper = getMethylDiff(myDiff.tiles2, qvalue = 0.1, difference = 10, type = "hyper")
+#bedgraph(myDiff.tiles2.hyper, file.name = "Sdev12_T11_12h_DMR_Hyper.bedgraph", col.name = "qvalue")
+
+
+myDiff.tiles2.hypo = getMethylDiff(myDiff.tiles2, qvalue = 0.1, difference = 10, type = "hypo")
+bedgraph(myDiff.tiles2.hypo, file.name = "Sdev12_T11_12h_DMR_Hypo.bedgraph", col.name = "qvalue")
+```
+
+
+#Finally, let's generate some PCAs!
+PCA for CpGs
+```{r}
+PCASamples(meth, screeplot = FALSE, adj.lim = c(1, 1), scale = TRUE, center = TRUE, comp = c(1,2), transpose = TRUE, sd.filter = TRUE, sd.threshold = 0.5, filterByQuantile = TRUE, obj.return = TRUE, chunk.size = 1e+06)
+```
+PCoA_Sdev12_T11_12h_CpG
+
+PCA for DMRs:
+```{r}
+PCASamples(meth.tiles, screeplot = FALSE, adj.lim = c(1, 1), scale = TRUE, center = TRUE, comp = c(1,2), transpose = TRUE, sd.filter = TRUE, sd.threshold = 0.5, filterByQuantile = TRUE, obj.return = TRUE, chunk.size = 1e+06)
+```
+PCoA_Sdev12_T11_12h_DMR
+
+To remove individual environment files use this:
+
+rm(myobj3)
+rm(myDiff25p.hyper)
+rm(myDiff25p.hyporm)
+rm(myDiff.tiles2)
+rm(myDiff.tiles2.hyper)
+rm(myDiff.tiles2.hypo)
+rm(myDiff2)
+rm(tiles2)
+rm(meth2)
+rm(meth.tiles2)
+rm(file.list2)

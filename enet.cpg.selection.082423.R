@@ -11,7 +11,7 @@ sexdata <- read.csv("MethylWild_SexData.csv")
 library(tidyverse)
 library(glmnet)
 library(MASS)
-
+library(wesanderson)
 
 #remove CpGs with NAs for the model
 nas <- colSums(is.na(allCpGs1))
@@ -23,7 +23,11 @@ allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NW",
                                     colnames(allCpGs1),perl = T)))]
 allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_009709.1",
                                     colnames(allCpGs1),perl = T)))]
-
+#!# remove sex-det and inversion!!!
+allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047158.1",
+                                    colnames(allCpGs1),perl = T)))]
+allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047162.1",
+                                    colnames(allCpGs1),perl = T)))]
 #log age data
 sexdata <- sexdata %>% 
   mutate(LogAge = log(Age))
@@ -170,12 +174,16 @@ unique(CpGlist_best)
 
 counting <- data.frame(CpGlist_best) %>% 
   group_by_all() %>% 
-  count()
+  count() %>% 
+  arrange(desc(n))
 table(counting$n)
 
 top_CpG_group <- counting %>% 
   arrange(desc(n)) %>% 
   filter(n > 20)
+
+#save CpG list
+write.csv(counting,file = "BestCpGList_100623.csv",quote = F,row.names = F)
 
 ###run clock with best CpG sites
 #randomly select individuals for testing
@@ -224,6 +232,14 @@ plot(ytest,pred_logage_test,col = testdat$ObsSex)
 #uncertainty for train and test
 train_MAE <- median(abs(exp(y) - exp(pred_logage[ ,1])))
 test_MAE <- median(abs(exp(ytest) - exp(pred_logage_test[ ,1])))
+
+##predict hatchery individuals with aging clock
+#select sites
+HPEI_test <- as.matrix(allCpGs1_HPEI[,which(colnames(allCpGs1_HPEI) %in% top_CpG_group$CpGlist_best)])
+pred_logage_HPEI <- predict(model2,newx = HPEI_test,type = "response",s = model1$lambda.1se)
+test_cor <- cor.test(ytest,pred_logage_test)
+ages_HPEI <- c(23,23,23,23,23,23,4,4,4,4,4,4,8,8,8,8,8,8)
+plot(ages_HPEI,pred_logage_HPEI)
 
 ##split clock by male and female (same train/test split)
 #female clock
@@ -284,15 +300,13 @@ test_res <- data.frame(indivname=testdat$indivname,ObsSex=testdat$ObsSex,LogAge=
 res_comb_all <- rbind(train_res,test_res)
 ggplot(res_comb_all,aes(x = LogAge,y = s1,color=ObsSex,shape = type))+
   geom_point()+
-  #ylim(0, 15) + xlim(0, 15) +
-  geom_smooth(method = "lm",
-              se = FALSE,
-              fullrange = TRUE,
-              colour = "gray30")+
-  xlab("Otolith Age (years)") +
+  ylim(0, 3) + xlim(0, 3) +
+  geom_abline(slope = 1,intercept = 0) +
+  xlab("Log Otolith Age (years)") +
   #ggtitle(paste("Female Halibut - Training data; R = ", round(corr3$estimate, 4))) +
-  ylab("Molecular clock Age (years)") +
+  ylab("Log Molecular clock Age (years)") +
   theme_classic(base_size = 18)
+
 
 
 train_res_f <- data.frame(indivname=trainf$indivname,ObsSex=trainf$ObsSex,LogAge=yf,LogEpiAge=pred_logage_f,type="Train")
@@ -306,11 +320,12 @@ res_comb_all_m <- rbind(train_res_m,test_res_m)
 res_comb_all_m <- res_comb_all_m %>% mutate(Age=exp(LogAge),EpiAge=exp(s1))
 
 res_all <- rbind(res_comb_all_f,res_comb_all_m)
-ggplot(res_all,aes(x = Age,y = EpiAge,color=ObsSex,shape = type))+
+ggplot(res_all,aes(x = Age,y = EpiAge,color= as.character(ObsSex),shape = type))+
   geom_point()+
-  #geom_abline(slope = 1,intercept = 0)+
+  geom_abline(slope = 1,intercept = 0)+
   ylim(0, 16) + xlim(0, 16) +
   xlab("Otolith Age (years)") +
+  scale_fill_manual(values = c(wes_palette("IsleofDogs1")[3],wes_palette("IsleofDogs1")[1]))+
   #ggtitle(paste("Female Halibut - Training data; R = ", round(corr3$estimate, 4))) +
   ylab("Molecular clock Age (years)") +
   theme_classic(base_size = 18)
