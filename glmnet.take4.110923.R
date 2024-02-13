@@ -4,7 +4,7 @@ setwd("E:/MethylSeq_Otolith/Prelim.methyl.analysis/")
 ##load data
 load("allCpGs_nosingletons.rda")
 load("allCpGs_HPEISamples_nonas.rda")
-sexdata <- read.csv("MethylWild_SexData.csv")
+sexdata <- read.csv("MethylWild_Sex_AgeData.csv")
 
 #load libraries
 library(tidyverse)
@@ -41,19 +41,6 @@ sexdata_f <- sexdata %>%
 sexdata_m <- sexdata %>% 
   filter(ObsSex == 1)
 
-#asymptotic age transformation
-#sexdata_tmp1 <- sexdata %>% 
-#  filter(DataType == "Wild") %>% 
-#  filter(ObsSex == 1) %>% 
-#  mutate(LogAge = logLin(x = Age, maturity = 8))
-
-#sexdata_tmp2 <- sexdata %>% 
-#  filter(DataType == "Wild") %>% 
-#  filter(ObsSex == 2) %>% 
-#  mutate(LogAge = logLin(x = Age, maturity = 10))
-
-#sexdata <- rbind(sexdata_tmp1,sexdata_tmp2)
-
 #create blank objects for storing outputs in loop
 modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 13))
 colnames(modelout) <- c("Train_cor","Test_cor","Train_MAE","Test_MAE",
@@ -75,7 +62,7 @@ predout_m <- data.frame(indivname = sexdata_m$indivname,
 ##Loop for glmnet testing with all CpG sites ####
 i <- 1
 for (i in 1:100) {
-  print(i)
+    print(i)
   set.seed(Sys.time())
   
   #randomly select individuals for testing
@@ -255,6 +242,7 @@ hist(modelout$F_Train_cor)
 hist(modelout$M_Train_cor)
 hist(modelout$F_Test_cor)
 hist(modelout$M_Test_cor)
+
 #concatenate all the best CpGs
 CpGlist_best <- CpGlist[[1]]
 for (i in 2:100) {
@@ -395,6 +383,8 @@ xtest <- as.matrix(testdat[,which(colnames(testdat) %in% top_CpG_group$CpGlist_b
 pred_logage <- predict(model1,newx = bestCpG_train,type = "response",s = model1$lambda.min)
 train_cor <- cor.test(y,pred_logage)
 plot(y,pred_logage,col = traindat$ObsSex)
+
+plot(model1, xvar = "dev", label = TRUE)
 
 #predict and correlate test data
 pred_logage_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.min)

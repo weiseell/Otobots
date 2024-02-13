@@ -1,0 +1,204 @@
+---
+title: "Epigenetic Aging Clock - Atlantic Halibut"
+author: "Ellie Weise"
+date: "2023-11-24"
+output: html_document
+---
+
+```{r,include=FALSE}
+##set working directory
+setwd("E:/MethylSeq_Otolith/Prelim.methyl.analysis/")
+
+##load data
+load("allCpGs_nosingletons.rda")
+load("allCpGs_HPEISamples_nonas.rda")
+sexdata <- read.csv("MethylWild_SexData.csv")
+
+#load libraries
+library(tidyverse)
+library(glmnet)
+library(MASS)
+library(wesanderson)
+
+#remove CpGs with NAs for the model
+nas <- colSums(is.na(allCpGs1))
+allCpGs1 <- allCpGs1[,which(nas < 1)]
+#write.csv(allCpGs1,"allCpGs_nonas.csv",append = F,quote = F)
+
+#remove NW and mito data from data set
+allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NW",
+                                    colnames(allCpGs1),perl = T)))]
+allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_009709.1",
+                                    colnames(allCpGs1),perl = T)))]
+#!# remove sex-det and inversion!!!
+allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047158.1",
+                                    colnames(allCpGs1),perl = T)))]
+allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047162.1",
+                                    colnames(allCpGs1),perl = T)))]
+```
+
+
+
+```{r}
+#log age data
+sexdata <- sexdata %>% 
+  filter(DataType == "Wild") %>% 
+  mutate(LogAge = log(Age))
+
+sexdata_f <- sexdata %>% 
+  filter(ObsSex == 2)
+
+sexdata_m <- sexdata %>% 
+  filter(ObsSex == 1)
+```
+
+## Finding the Best CpGs for describing age
+
+```{r,results='hide',message=F,warning=F}
+#create blank objects for storing outputs in loop
+CpGlist <- list()
+CpGlist_f <- list()
+CpGlist_m <- list()
+##Loop for glmnet testing with all CpG sites ####
+i <- 1
+for (i in 1:100) {
+  print(i)
+  set.seed(Sys.time())
+  
+  #randomly select individuals for testing
+  testpick <- sexdata %>% 
+    filter(DataType == "Wild") %>% 
+    group_by(Age,ObsSex) %>% 
+    slice_sample(n = 1)
+  
+  #sort other individuals into training data
+  trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
+  trainpick <- trainpick %>% 
+    filter(DataType == "Wild")
+  
+  #select CpG sites for each group
+  testdat <- allCpGs1[which(allCpGs1$indivname %in% testpick$indivname),]
+  testdat <- full_join(testpick,testdat,by = "indivname")
+  
+  traindat <- allCpGs1[which(!(allCpGs1$indivname %in% testpick$indivname)),]
+  traindat <- full_join(trainpick,traindat,by = "indivname")
+  
+  #select data and run glmnet to select sites
+  y <- traindat$LogAge
+  x <- as.matrix(traindat[,-1:-5])
+  
+  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 10)
+  coef.allCpG <- as.matrix(coef(model1,s = "lambda.min"))
+  
+  bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
+  
+  ##split clock by male and female (same train/test split)
+  #female clock
+  trainf <- traindat %>% filter(ObsSex == 2)
+  testf <- testdat %>% filter(ObsSex == 2)
+  xf <- as.matrix(trainf[,-1:-5])
+  yf <- trainf$LogAge
+  
+  ytestf <- testf$LogAge
+  xtestf <- as.matrix(testf[,-1:-5])
+  
+  modelf <- cv.glmnet(xf,yf,family = "gaussian",alpha = 0.5,nfolds = 10)
+  
+  coef.allCpG_f <- as.matrix(coef(modelf,s = "lambda.min"))
+  
+  bestCpGnames_f <- names(coef.allCpG_f[which(coef.allCpG_f > 0),])
+
+  #male clock
+  trainm <- traindat %>% filter(ObsSex == 1)
+  testm <- testdat %>% filter(ObsSex == 1)
+  xm <- as.matrix(trainm[,-1:-5])
+  ym <- trainm$LogAge
+  
+  ytestm <- testm$LogAge
+  xtestm <- as.matrix(testm[,-1:-5])
+  
+  #run glmnet model with alpha=0 to include all sites
+  modelm <- cv.glmnet(xm,ym,family = "gaussian",alpha = 0.5,nfolds = 10)
+  
+  coef.allCpG_m <- as.matrix(coef(modelm,s = "lambda.min"))
+  
+  bestCpGnames_m <- names(coef.allCpG_m[which(coef.allCpG_m > 0),])
+  
+  ##save outputs
+  CpGlist[[i]] <- bestCpGnames
+  CpGlist_f[[i]] <- bestCpGnames_f
+  CpGlist_m[[i]] <- bestCpGnames_m
+}
+```
+
+
+```{r}
+#concatenate all the best CpGs
+CpGlist_best <- CpGlist[[1]]
+for (i in 2:100) {
+  CpGlist_best <- c(CpGlist_best,CpGlist[[i]])
+}
+
+counting <- data.frame(CpGlist_best) %>% 
+  group_by_all() %>% 
+  count() %>% 
+  arrange(desc(n))
+table(counting$n)
+
+top_CpG_group <- counting %>% 
+  arrange(desc(n)) %>% 
+  filter(n > 20)
+```
+
+```{r}
+#best Cpgs for female clock
+CpGlist_best_f <- CpGlist_f[[1]]
+for (i in 2:100) {
+  CpGlist_best_f <- c(CpGlist_best_f,CpGlist[[i]])
+}
+
+counting <- data.frame(CpGlist_best_f) %>% 
+  group_by_all() %>% 
+  count() %>% 
+  arrange(desc(n))
+table(counting$n)
+
+top_CpG_group_f <- counting %>% 
+  arrange(desc(n)) %>% 
+  filter(n > 20)
+```
+
+```{r}
+#best Cpgs for male clock
+CpGlist_best_m <- CpGlist_m[[1]]
+for (i in 2:100) {
+  CpGlist_best_m <- c(CpGlist_best_m,CpGlist[[i]])
+}
+
+counting <- data.frame(CpGlist_best_m) %>% 
+  group_by_all() %>% 
+  count() %>% 
+  arrange(desc(n))
+table(counting$n)
+
+top_CpG_group_m <- counting %>% 
+  arrange(desc(n)) %>% 
+  filter(n > 20)
+
+top_CpG_group_f$CpGlist_best_f %in% top_CpG_group_m$CpGlist_best_m
+top_CpG_group$CpGlist_best %in% top_CpG_group_m$CpGlist_best_m
+```
+
+## Age Predictions with the Identified CpGs
+
+
+
+
+
+
+
+
+
+
+
+
