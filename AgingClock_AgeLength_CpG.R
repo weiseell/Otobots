@@ -76,8 +76,6 @@ train_cor <- cor.test(y,pred_logage)
 
 plot(model1, xvar = "dev", label = TRUE)
 
-
-
 #predict and correlate test data
 pred_logage_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.min)
 test_cor <- cor.test(ytest,pred_logage_test)

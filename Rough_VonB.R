@@ -9,7 +9,7 @@ library(car)
 library(ggpubr)
 
 ## load data
-dat <- read.csv("SampleMetadataExport_WithAge_9Feb2023_Redit.csv")
+dat <- read.csv("Input/SampleMetadataExport_WithAge_9Feb2023_Redit.csv")
 
 table(dat$OtoAge)
 
@@ -62,6 +62,7 @@ headtail(preds1)
 fplot <- ggplot() + 
   geom_ribbon(data=preds1,aes(x=age,ymin=LCI,ymax=UCI),fill="gray90") +
   geom_point(data=fem,aes(y=Length,x=OtoAge),size=2,alpha=0.1) +
+  #geom_point(data=genf,aes(y=Length,x=Age),size=2,alpha=0.8,col="darkblue") +
   geom_line(data=preds1,aes(y=fit,x=age),size=1,linetype=2) +
   scale_y_continuous(name="Total Length (cm)",limits=c(0,200),expand=c(0,0)) +
   scale_x_continuous(name="Age (years)",expand=c(0,0),
@@ -88,6 +89,7 @@ headtail(preds2)
 mplot <- ggplot() + 
   geom_ribbon(data=preds2,aes(x=age,ymin=LCI,ymax=UCI),fill="gray90") +
   geom_point(data=male,aes(y=Length,x=OtoAge),size=2,alpha=0.1) +
+  #geom_point(data=genm,aes(y=Length,x=Age),size=2,alpha=0.8,col="darkblue") +
   geom_line(data=preds2,aes(y=fit,x=age),size=1,linetype=2) +
   scale_y_continuous(name="Total Length (cm)",limits=c(0,200),expand=c(0,0)) +
   scale_x_continuous(name="Age (years)",expand=c(0,0),
@@ -97,6 +99,6 @@ mplot <- ggplot() +
   ggtitle("VonB Length-Age Curve for Genetic Males")
 
 ## combine plots into two subplots
-tiff(filename = "Figures/CKMRsimSimulated_PO.UR_073123.tiff",width = 84,height = 150,units = "mm",res = 400)
+tiff(filename = "Figures/VonBCurves_roughdata.tiff",width = 150,height = 80,units = "mm",res = 400)
 ggarrange(fplot,mplot,labels = c("A","B"),ncol = 2,nrow = 1)
-
+dev.off()
