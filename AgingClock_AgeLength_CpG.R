@@ -54,6 +54,7 @@ testdat <- full_join(testpick,testdat,by = "indivname")
 traindat <- allCpGs1[which(!(allCpGs1$indivname %in% testpick$indivname)),]
 traindat <- full_join(trainpick,traindat,by = "indivname")
 
+## Full Data Model ####
 #select data and run glmnet to select sites
 y <- traindat$LogAge
 x <- as.matrix(traindat[,-1:-5])
@@ -85,7 +86,7 @@ test_cor <- cor.test(ytest,pred_logage_test)
 train_MAE <- median(abs(exp(y) - exp(pred_logage[ ,1])))
 test_MAE <- median(abs(exp(ytest) - exp(pred_logage_test[ ,1])))
 
-##Sex-separated clocks
+##Sex-separated clocks ####
 #female clock
 trainf <- traindat %>% filter(ObsSex == 2)
 testf <- testdat %>% filter(ObsSex == 2)
