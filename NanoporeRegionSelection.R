@@ -11,7 +11,7 @@ library(stringr)
 df <- read.csv("Output/CpGList_LengthAge.csv")
 ChromSwap <- read.csv("Input/ChromosomeSwap.csv")
 load("Input/allCpGs_nosingletons.rda")
-
+CpGlist_best_comb <- read.csv(file = "Output/CpGList_LengthAge.csv")
 ##Dataset cleaning ####
 #remove CpGs with NAs for the model
 nas <- colSums(is.na(allCpGs1))
@@ -58,7 +58,7 @@ dev.off()
 CpGRegion <- data.frame(matrix(nrow = 0, ncol = 3))
 colnames(CpGRegion) <- c("CHROM","StartPOS","EndPOS")
 
-for (k in 1:length(unique(CpGlocs$CHROM))) {
+for (k in 1:(length(unique(CpGlocs$CHROM))-1)) {
   currentCHR <- unique(CpGlocs$CHROM)[k]
   CpG_Chr <- subset(CpGlocs,CpGlocs$CHROM == currentCHR)
   
@@ -71,7 +71,7 @@ for (k in 1:length(unique(CpGlocs$CHROM))) {
   mins <- CpG_Chr[1,2]
   #start 2
   maxes <- c()
-  if(CpG_Chr[2,2] - CpG_Chr[1,2] >= 1000){
+  if(CpG_Chr[2,2] - CpG_Chr[1,2] >= 10000){
     maxes <- CpG_Chr[2,2]
   }
   tmpmax <- CpG_Chr[2,2]
@@ -80,28 +80,28 @@ for (k in 1:length(unique(CpGlocs$CHROM))) {
   for (i in 3:length(CpG_Chr$CHROM)) {
     #set current max
     #if previous loop set a new maximum, set a new miniumum
-    if(CpG_Chr[i-1,2] - CpG_Chr[i-2,2] >= 1000){
+    if(CpG_Chr[i-1,2] - CpG_Chr[i-2,2] >= 10000){
       mins <- c(mins,CpG_Chr[i,2])
       #tmpmax <- CpG_Chr[i,2]
     }
     
-    if(CpG_Chr[i-1,2] - CpG_Chr[i-2,2] >= 1000 & CpG_Chr[i,2] - CpG_Chr[i-1,2] >= 1000){
+    if(CpG_Chr[i-1,2] - CpG_Chr[i-2,2] >= 10000 & CpG_Chr[i,2] - CpG_Chr[i-1,2] >= 10000){
       maxes <- c(maxes,CpG_Chr[i,2])
     }
     
-    if(CpG_Chr[i-1,2] - CpG_Chr[i-2,2] < 1000){
-      if(CpG_Chr[i,2] - CpG_Chr[i-1,2] < 1000){
+    if(CpG_Chr[i-1,2] - CpG_Chr[i-2,2] < 10000){
+      if(CpG_Chr[i,2] - CpG_Chr[i-1,2] < 10000){
         tmpmax <- CpG_Chr[i,2]
       }
       
-      if(CpG_Chr[i,2] - CpG_Chr[i-1,2] >= 1000){
+      if(CpG_Chr[i,2] - CpG_Chr[i-1,2] >= 10000){
         maxes <- c(maxes,tmpmax)
         
       }
     }
   }
   
-  if(CpG_Chr[length(CpG_Chr$CHROM),2] - CpG_Chr[length(CpG_Chr$CHROM)-1,2] >= 1000){
+  if(CpG_Chr[length(CpG_Chr$CHROM),2] - CpG_Chr[length(CpG_Chr$CHROM)-1,2] >= 10000){
     mins <- c(mins,CpG_Chr[length(CpG_Chr$CHROM),2])
   }
   
@@ -120,8 +120,8 @@ for (k in 1:length(unique(CpGlocs$CHROM))) {
 ## Adjusting the regions so they cover at least 500 bp
 for (i in 1:length(CpGRegion$CHROM)) {
   dist <- CpGRegion$EndPOS[i] - CpGRegion$StartPOS[i]
-  if(dist < 1000){
-    addto <- round((1000 - dist)/2,digits = 0)
+  if(dist < 10000){
+    addto <- round((10000 - dist)/2,digits = 0)
     newmin <- CpGRegion$StartPOS[i] - addto
     newmax <- CpGRegion$EndPOS[i] + addto
     chrmax <- ChromSwap$Length[which(ChromSwap$NCseq == CpGRegion$CHROM[i])]
@@ -131,14 +131,14 @@ for (i in 1:length(CpGRegion$CHROM)) {
     }
     
     if(newmin < 0){
-      newdist <- 1000 - CpGRegion$StartPOS[i] + 1
+      newdist <- 10000 - CpGRegion$StartPOS[i] + 1
       newmax <- CpGRegion$EndPOS[i] + newdist
       CpGRegion$StartPOS[i] <- 1
       CpGRegion$EndPOS[i] <- newmax
     }
     
     if(newmax > chrmax){
-      newdist <- 1000 - (chrmax - CpGRegion$EndPOS)
+      newdist <- 10000 - (chrmax - CpGRegion$EndPOS)
       CpGRegion$StartPOS[i] <- CpGRegion$StartPOS - newdist
       CpGRegion$EndPOS[i] <- chrmax
     }
