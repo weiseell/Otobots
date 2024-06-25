@@ -47,7 +47,7 @@ for (k in 1:length(unique(CpGlocs$CHROM))) {
       df[1,2] <- CpG_Chr$MapInfo[1]
       df[1,3] <- CpG_Chr$MapInfo[2]
     }
-    if(nrow(CpG_Chr) == 2){
+    if(abs(CpG_Chr$MapInfo[2] - CpG_Chr$MapInfo[1]) > 5000){
       #make two separate regions since the CpGs are too far apart to be combines
       #make a data frame
       df <- data.frame(matrix(nrow = 2,ncol = 3))
@@ -72,7 +72,7 @@ for (k in 1:length(unique(CpGlocs$CHROM))) {
     #start 2
     maxes <- c()
     if(CpG_Chr[2,2] - CpG_Chr[1,2] >= 5000){
-      maxes <- CpG_Chr[2,2]
+      maxes <- CpG_Chr[1,2]
     }
     tmpmax <- CpG_Chr[2,2]
     
@@ -82,7 +82,6 @@ for (k in 1:length(unique(CpGlocs$CHROM))) {
       #if previous loop set a new maximum, set a new miniumum
       if(CpG_Chr[i-1,2] - CpG_Chr[i-2,2] >= 5000){
         mins <- c(mins,CpG_Chr[i,2])
-        #tmpmax <- CpG_Chr[i,2]
       }
       
       if(CpG_Chr[i-1,2] - CpG_Chr[i-2,2] >= 5000 & CpG_Chr[i,2] - CpG_Chr[i-1,2] >= 5000){
@@ -151,18 +150,7 @@ CpGRegion$diff <- CpGRegion$EndPOS - CpGRegion$StartPOS
 #comparing total size compared to full genome sequence (750MB)
 sum(CpGRegion$diff)/750000000
 
-## Removing sections related to inversion and then adding the full inversion region with a buffer
-CpGregion_noinv <- CpGRegion[which(!(CpGRegion$CHROM == "NC_047158.1" & CpGRegion$StartPOS >= 4000000 & CpGRegion$EndPOS <= 13000000)),]
-
-# inversion
-colnames(CpGRegion)
-inv <- c("NC_047158.1",as.integer(4000000),as.integer(13000000),as.integer(13000000-4000000))
-length(CpGregion_noinv$CHROM)
-#add a blank row
-CpGregion_noinv[264,] <- c("NC_047158.1",as.integer(4000000),as.integer(13000000),as.integer(13000000-4000000))
-CpGregion_addinv <- CpGregion_noinv %>% arrange(CHROM,as.integer(StartPOS))
-
 sum(as.integer(CpGregion_addinv$diff))/750000000
-write.table(CpGregion_addinv[,1:3],file = "Output/NanoporeRegionSelection_040424.txt",quote = F,sep = "\t",row.names = F,col.names = F)
+write.table(CpGRegion[,1:3],file = "Output/NanoporeRegionSelection_040424.txt",quote = F,sep = "\t",row.names = F,col.names = F)
 
 
