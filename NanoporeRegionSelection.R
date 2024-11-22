@@ -31,11 +31,11 @@ tmp <- data.frame(str_split_fixed(string = CpGnames,pattern = "\\.",n = 3))
 CpGlocs <- tmp %>% 
   mutate(CHROM = paste(X1,X2,sep = "."),Type = "CpG") %>% 
   rename(MapInfo=X3) %>% 
-  select(CHROM,MapInfo,Type)
+  dplyr::select(CHROM,MapInfo,Type)
 
 #alternative file with only best CpGs from model
 CpGlocs <- df %>% 
-  select(CHROM,POS,ModelType) %>% 
+  dplyr::select(CHROM,POS,ModelType) %>% 
   rename(MapInfo = POS,Type = ModelType)
 
 #make SNP panel plot####
@@ -44,7 +44,7 @@ for (i in 1:length(ChromSwap$NCseq)) {
   CpGlocs$CHR[which(CpGlocs$CHROM == ChromSwap$NCseq[i])] <- ChromSwap$Einfeldt[i]
 }
 
-CpGlocs1 <- CpGlocs %>% select(CHR,MapInfo,Type)
+CpGlocs1 <- CpGlocs %>% dplyr::select(CHR,MapInfo,Type)
 chrom <- ChromSwap[,3:4]
 chrom <- chrom %>% rename(CHR = Einfeldt,MapInfo = Length) %>% mutate(Type = "ChrLength")
 

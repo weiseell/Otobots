@@ -12,7 +12,6 @@ dat <- read.csv("Input/SampleMetadataExport_WithAge_9Feb2023_Redit.csv")
 
 table(dat$OtoAge)
 
-load("Input/")
 # eliminate data with small sample size
 vb <- vbFuns(param="Typical")
 
@@ -73,7 +72,7 @@ fplot <- ggplot() +
   #geom_point(data=genf,aes(y=Length,x=Age),size=2,alpha=0.8,col="darkblue") +
   geom_ribbon(data=preds1,aes(x=age,ymin=LCI,ymax=UCI),fill="gray90") +
   geom_line(data=preds1,aes(y=fit,x=age),size=1,linetype=2) +
-  geom_line(data=preds_fSCAL,aes(y=fit,x=age),size=1,linetype=3) +
+  #geom_line(data=preds_fSCAL,aes(y=fit,x=age),size=1,linetype=3) +
   scale_y_continuous(name="Total Length (cm)",limits=c(0,220),expand=c(0,0)) +
   scale_x_continuous(name="Age (years)",expand=c(0,0),
                      limits=c(0,30),breaks=seq(0,30,2)) +

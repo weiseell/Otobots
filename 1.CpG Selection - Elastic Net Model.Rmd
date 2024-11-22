@@ -1,0 +1,304 @@
+---
+title: "1. Selecting CpGs for Age Prediction"
+author: "Ellie Weise"
+date: "2024-09-20"
+output: html_document
+---
+
+```{r,echo=F,warning=F,message=F}
+##load data
+load("Input/allCpGs_nosingletons.rda")
+sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
+
+#load libraries
+library(tidyverse)
+library(glmnet)
+library(MASS)
+library(wesanderson)
+```
+
+
+There are many sources of methylation variation among individuals in a population, from environmental effects to stress and life history. However, a small number of methylation sites (CpGs) have increasing methylation rates as individuals age. We used elastic net models to select these sites among the thousands of CpGs sequenced across the full-genome data we have for our test individuals. 
+
+## Cleaning Data Set
+We've removed regions of the genome related to sex-determination, a putative inversion region, and mitochondrial and non-mapped regions to eliminate sources of bias within the genome (including CpGs that are related to sex-determination or inversion rather than age). Additionally, elastic net models do not accomodate missing data, so any CpG sites that contain NAs are removed.
+
+```{r}
+#remove CpGs with NAs for the model
+nas <- colSums(is.na(allCpGs1))
+allCpGs1 <- allCpGs1[,which(nas < 1)]
+
+#remove non-mapped scaffold and mitochondrial data from data set
+allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NW",
+                                    colnames(allCpGs1),perl = T)))]
+allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_009709.1",
+                                    colnames(allCpGs1),perl = T)))]
+
+# remove sex-det and inversion chromosomes
+allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047158.1",
+                                    colnames(allCpGs1),perl = T)))]
+allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047162.1",
+                                    colnames(allCpGs1),perl = T)))]
+```
+
+## Prepping to Run Models
+We log age data prior to running the model, and the CpG selected is repeated 100 times with different training and testing sets. This was repeated with sex-separated clocks as well (glmnet R script) but it is shorted to just the full model here since that is what we ended up using.
+```{r}
+#log age data
+sexdata <- sexdata %>% 
+  mutate(LogAge = log(Age),LogLen = log(Length))
+```
+
+```{r}
+#create blank objects for storing outputs in loop
+modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 13))
+colnames(modelout) <- c("Train_cor","Test_cor","Train_MAE","Test_MAE","lambda.1se")
+CpGlist <- list()
+
+predout <- data.frame(indivname = sexdata$indivname,
+                      LogAge = sexdata$LogAge)
+```
+
+## Run 100 Elastic Net Model Replicates
+```{r}
+##Loop for glmnet testing with all CpG sites ####
+i <- 1
+for (i in 1:100) {
+  #print(i)
+  #set a different seed so different train/test and a separate model are constructed
+  set.seed(Sys.time())
+  
+  #randomly select individuals for testing
+  testpick <- sexdata %>% 
+    group_by(Age,ObsSex) %>% 
+    slice_sample(n = 1)
+  
+  #sort other individuals into training data
+  trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
+  
+  #select CpG sites for each group
+  testdat <- allCpGs1[which(allCpGs1$indivname %in% testpick$indivname),]
+  testdat <- full_join(testpick,testdat,by = "indivname")
+  
+  traindat <- allCpGs1[which(!(allCpGs1$indivname %in% testpick$indivname)),]
+  traindat <- full_join(trainpick,traindat,by = "indivname")
+  
+  #select data and run glmnet to select sites
+  y <- traindat$LogAge
+  x <- as.matrix(traindat[,-1:-6])
+  
+  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 10)
+  coef.allCpG <- as.matrix(coef(model1,s = "lambda.min"))
+  
+  bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
+  
+  #predict testdat
+  ytest <- testdat$LogAge
+  xtest <- as.matrix(testdat[,-1:-6])
+  
+  #predict and correlate train data
+  pred_logage <- predict(model1,newx = x,type = "response",s = model1$lambda.min)
+  train_cor <- cor.test(y,pred_logage)
+  
+  #predict and correlate test data
+  pred_logage_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.min)
+  test_cor <- cor.test(ytest,pred_logage_test)
+  
+  #uncertainty for train and test
+  train_MAE <- median(abs(exp(y) - exp(pred_logage[ ,1])))
+  test_MAE <- median(abs(exp(ytest) - exp(pred_logage_test[ ,1])))
+  
+  ##save outputs
+  modelout[i,5] <- model1$lambda.min
+  CpGlist[[i]] <- bestCpGnames
+  
+  modelout[i,1] <- train_cor$estimate
+  modelout[i,2] <- test_cor$estimate
+  
+  modelout[i,3] <- train_MAE
+  modelout[i,4] <- test_MAE
+  
+  #save predictions
+  #full model
+  trainpred <- data.frame(indivname = trainpick$indivname,
+                          LogAge = trainpick$LogAge,
+                          predage = pred_logage)
+  testpred <- data.frame(indivname = testpick$indivname,
+                          LogAge = testpick$LogAge,
+                          predage = pred_logage_test)
+  predout_tmp <- rbind(trainpred,testpred)
+  predout <- full_join(predout,predout_tmp, by = c("indivname","LogAge"))
+}
+
+hist(modelout$Train_cor)
+hist(modelout$Test_cor)
+
+#concatenate all the best CpGs
+CpGlist_best <- CpGlist[[1]]
+for (i in 2:100) {
+  CpGlist_best <- c(CpGlist_best,CpGlist[[i]])
+}
+
+counting <- data.frame(CpGlist_best) %>% 
+  group_by_all() %>% 
+  count() %>% 
+  arrange(desc(n))
+table(counting$n)
+
+top_CpG_group <- counting %>% 
+  arrange(desc(n)) %>% 
+  filter(n > 20)
+```
+
+## Repeat Loop with Length
+```{r}
+#create blank objects for storing outputs in loop
+modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 13))
+colnames(modelout) <- c("Train_cor","Test_cor","Train_MAE","Test_MAE","lambda.1se")
+CpGlist <- list()
+
+predout <- data.frame(indivname = sexdata$indivname,
+                      LogLen = sexdata$LogLen)
+
+##Loop for glmnet testing with all CpG sites ####
+i <- 1
+for (i in 1:100) {
+  #print(i)
+  set.seed(Sys.time())
+  
+  #randomly select individuals for testing
+  testpick <- sexdata %>% 
+    group_by(Age,ObsSex) %>% 
+    slice_sample(n = 1)
+  
+  #sort other individuals into training data
+  trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
+  
+  #select CpG sites for each group
+  testdat <- allCpGs1[which(allCpGs1$indivname %in% testpick$indivname),]
+  testdat <- full_join(testpick,testdat,by = "indivname")
+  
+  traindat <- allCpGs1[which(!(allCpGs1$indivname %in% testpick$indivname)),]
+  traindat <- full_join(trainpick,traindat,by = "indivname")
+  
+  #select data and run glmnet to select sites
+  y <- traindat$LogLen
+  x <- as.matrix(traindat[,-1:-6])
+  
+  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 10)
+  coef.allCpG <- as.matrix(coef(model1,s = "lambda.min"))
+  
+  bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
+  
+  #predict testdat
+  ytest <- testdat$LogLen
+  xtest <- as.matrix(testdat[,-1:-6])
+  
+  #predict and correlate train data
+  pred_LogLen <- predict(model1,newx = x,type = "response",s = model1$lambda.min)
+  train_cor <- cor.test(y,pred_LogLen)
+  
+  #predict and correlate test data
+  pred_LogLen_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.min)
+  test_cor <- cor.test(ytest,pred_LogLen_test)
+  
+  #uncertainty for train and test
+  train_MAE <- median(abs(exp(y) - exp(pred_LogLen[ ,1])))
+  test_MAE <- median(abs(exp(ytest) - exp(pred_LogLen_test[ ,1])))
+  
+  ##save outputs
+  modelout[i,5] <- model1$lambda.min
+  CpGlist[[i]] <- bestCpGnames
+  
+  modelout[i,1] <- train_cor$estimate
+  modelout[i,2] <- test_cor$estimate
+  
+  modelout[i,3] <- train_MAE
+  modelout[i,4] <- test_MAE
+  
+  #save predictions
+  #full model
+  trainpred <- data.frame(indivname = trainpick$indivname,
+                          LogLen = trainpick$LogLen,
+                          predlen = pred_LogLen)
+  testpred <- data.frame(indivname = testpick$indivname,
+                         LogLen = testpick$LogLen,
+                         predlen = pred_LogLen_test)
+  predout_tmp <- rbind(trainpred,testpred)
+  predout <- full_join(predout,predout_tmp, by = c("indivname","LogLen"))
+}
+
+hist(modelout$Train_cor)
+hist(modelout$Test_cor)
+
+#concatenate all the best CpGs
+CpGlist_best_len <- CpGlist[[1]]
+for (i in 2:100) {
+  CpGlist_best_len <- c(CpGlist_best_len,CpGlist[[i]])
+}
+
+counting <- data.frame(CpGlist_best_len) %>% 
+  group_by_all() %>% 
+  count() %>% 
+  arrange(desc(n))
+table(counting$n)
+
+top_CpG_group_len <- counting %>% 
+  arrange(desc(n)) %>% 
+  filter(n > 20) %>% 
+  rename(CpGlist_best = CpGlist_best_len)
+```
+
+## Concatenate the best CpGs across replicates
+```{r}
+CpGlist_best_comb <- unique(rbind(top_CpG_group,top_CpG_group_len))
+
+#write.csv(CpGlist_best_comb,file = "Output/CpGList_LengthAge.csv",row.names = F)
+```
+
+## Figures - look at correlation and MAE values for age prediction
+```{r}
+predout %>% 
+  gather(key = "rep",value = "PredAge",-indivname,-LogLen) %>% 
+  ggplot(aes(group = factor(exp(LogLen)),y = exp(PredAge),x=exp(LogLen))) +
+    geom_boxplot() +
+    #geom_jitter(aes(color=indivname)) +
+    ggtitle("Halibut - Training data") +
+    xlab("Otolith Age Estimate (years)") +
+    ylab("Molecular clock Age (years)") +
+    theme_classic(base_size = 18)
+
+## quick look at lambda values, correlation levels and MAE values across replicates
+modelout[,1:5] %>% 
+  gather(key="stat",value = "value") %>% 
+  ggplot(aes(x=stat,y=value))+
+  geom_boxplot()+
+  theme_classic(base_size = 18)
+  
+  
+```
+
+```{r}
+#log age data
+sexdata <- sexdata %>% 
+  mutate(LogAge = log(Age),LogLen = log(Length))
+
+bestCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_best_comb$CpGlist_best)]
+bestCpGs <- cbind(indivname=allCpGs1$indivname,bestCpGs)
+tmp <- sexdata[,1:3]
+pdf(file = "Figures/PerCpGOtolith.pdf", width = 20, height = 16)
+tmp %>% full_join(bestCpGs,by = "indivname") %>% 
+  gather(key = "CpG", value = "Methyl",-indivname,-ObsSex,-Age) %>% 
+  filter(CpG == "NC_047159.1.29166055" | CpG == "NC_047153.1.32666785" | CpG == "NC_047163.1.29070020") %>% 
+  ggplot(aes(x = Age, y = Methyl, color = ObsSex)) +
+  geom_point() +
+  facet_wrap(~CpG,scales = "free_y") +
+  xlab("Otolith Age Estimate") +
+  ylab("Percent Methylation") +
+  ggtitle("Otolith Age vs. Percent Methylation per CpG") +
+  theme_bw() +
+  theme(legend.position = "none")
+dev.off()
+
+```
+

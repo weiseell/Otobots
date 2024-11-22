@@ -7,26 +7,28 @@ library(MASS)
 
 #load data
 load("Output/AgeLengthCpG_modelrun_021524.RData")
-barcode1 <- read.table("Input/Barcode1.bedMethyl",header = T,sep = "\t",stringsAsFactors = F)
-barcode2 <- read.table("Input/Barcode2.bedMethyl",header = T,sep = "\t",stringsAsFactors = F)
-
+barcode1 <- read.table("Input/Barcode3_21-SS-HIP-5533_v5.bedMethyl",header = F,stringsAsFactors = F)
+barcode1 <- subset(barcode1,barcode1$V4 == "h")
+barcode2 <- read.table("Input/Barcode4_20-SS-HS-HYP157_v5.bedMethyl",header = F,stringsAsFactors = F)
+barcode2 <- subset(barcode2,barcode2$V4 == "h")
 #selecting just percent mod and CpG position
 pm1 <- barcode1[,c(1,3,11)]
 pm2 <- barcode2[,c(1,3,11)]
-
+colnames(pm1) <- c("CHROM","END","PERCMOD")
+colnames(pm2) <- c("CHROM","END","PERCMOD")
 #reformatting to match Illumina individual data
 pm1 <- pm1 %>% 
-  mutate(CpG = paste(CHROM,END,sep = "."))
-pm1 <- t(pm1[,c(4,3)])
-colnames(pm1) <- pm1[1,]
+  mutate(CpG = paste(CHROM,END,sep = ".")) %>% 
+  dplyr::select(CpG,PERCMOD) %>% 
+  spread(key = CpG,value = PERCMOD)
 
 pm2 <- pm2 %>% 
-  mutate(CpG = paste(CHROM,END,sep = "."))
-pm2 <- t(pm2[,c(4,3)])
-colnames(pm2) <- pm2[1,]
+  mutate(CpG = paste(CHROM,END,sep = ".")) %>% 
+  dplyr::select(CpG,PERCMOD) %>% 
+  spread(key = CpG,value = PERCMOD)
 
-best1 <- pm1[2,which(colnames(pm1) %in% CpGlist_best_comb$CpGlist_best)]
-best2 <- pm2[2,which(colnames(pm2) %in% CpGlist_best_comb$CpGlist_best)]
+best1 <- pm1[1,which(colnames(pm1) %in% CpGlist_best_comb$CpGlist_best)]
+best2 <- pm2[1,which(colnames(pm2) %in% CpGlist_best_comb$CpGlist_best)]
 
 #select data and run glmnet to select sites
 y <- traindat$LogAge
