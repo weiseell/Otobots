@@ -5,26 +5,278 @@ date: "2024-09-20"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+## Overview
+Once Nanopore data has been processed into an individual vs. percent methylation table, we can look at both that and the per adaptive region depth value to evaluate the success of the nanopore run.
+
+## Testing Nanopore percent methylation against existing clock
+
+### loading in data and libraries
+```{r}
+### Testing Nanopore results with existing model
+#load packages
+library(tidyverse)
+library(glmnet)
+library(MASS)
+library(paletteer)
+
+#load data
+load("Output/AgeLengthCpG_modelrun_021524.RData")
+barcode1 <- read.table("Input/Barcode3_21-SS-HIP-5533_v5.bedMethyl",header = F,stringsAsFactors = F)
+barcode1 <- subset(barcode1,barcode1$V4 == "h")
+barcode2 <- read.table("Input/Barcode4_20-SS-HS-HYP157_v5.bedMethyl",header = F,stringsAsFactors = F)
+barcode2 <- subset(barcode2,barcode2$V4 == "h")
+#selecting just percent mod and CpG position
+pm1 <- barcode1[,c(1,3,11)]
+pm2 <- barcode2[,c(1,3,11)]
+colnames(pm1) <- c("CHROM","END","PERCMOD")
+colnames(pm2) <- c("CHROM","END","PERCMOD")
 ```
 
-## R Markdown
+### Reformatting to match the Illumina data
+```{r}
+#reformatting to match Illumina individual data
+pm1 <- pm1 %>% 
+  mutate(CpG = paste(CHROM,END,sep = ".")) %>% 
+  dplyr::select(CpG,PERCMOD) %>% 
+  spread(key = CpG,value = PERCMOD)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+pm2 <- pm2 %>% 
+  mutate(CpG = paste(CHROM,END,sep = ".")) %>% 
+  dplyr::select(CpG,PERCMOD) %>% 
+  spread(key = CpG,value = PERCMOD)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+best1 <- pm1[1,which(colnames(pm1) %in% CpGlist_best_comb$CpGlist_best)]
+best2 <- pm2[1,which(colnames(pm2) %in% CpGlist_best_comb$CpGlist_best)]
 ```
 
-## Including Plots
+### Running elastic net model with shared sites and predicting nanopore ages
+```{r}
+#select data and run glmnet to select sites
+y <- traindat$LogAge
 
-You can also embed plots, for example:
+#running a glmnet with all selected sites
+bestCpG_train <- as.matrix(traindat[,which(colnames(traindat) %in% names(best1))])
+model1 <- cv.glmnet(bestCpG_train,y,family = "gaussian",alpha = 0.05,nfolds = 10)
+coef.allCpG <- as.matrix(coef(model1,s = "lambda.min"))
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
+
+#predict testdat
+ytest <- c(testdat$LogAge,log(4),log(15))
+xtest <- as.matrix(testdat[,which(colnames(testdat) %in% names(best1))])
+xtest <- rbind(xtest,as.numeric(best1),as.numeric(best2))
+
+#predict and correlate train data
+pred_logage <- predict(model1,newx = bestCpG_train,type = "response",s = model1$lambda.min)
+train_cor <- cor.test(y,pred_logage)
+#plot(y,pred_logage,col = traindat$ObsSex)
+
+plot(model1, xvar = "dev", label = TRUE)
+
+#predict and correlate test data
+pred_logage_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.min)
+test_cor <- cor.test(ytest,pred_logage_test)
+
+plot(ytest,pred_logage_test)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+*We found that the Nanopore percent methylation values were correlated with the Illumina data for both our individuals, but the percent methylation values themselves are different enough that they can't be combined into a single clock. Other groups have had similar difficulties combining methylation data across platforms. However, it has been shown that the results and CpG locations can be corroborated across platforms, just not the percent methylation values themselves.*
+
+## Testing per CpG depth for Nanopore Runs
+### Reading in depth files and adaptive files
+```{r}
+depth1 <- read.table("Input/Barcode1_21-SS-HIP-5533.txt")
+colnames(depth1) <- c("CHROM","POS","DEPTH")
+
+depth2 <- read.table("Input/Barcode2_20-SS-HS-HYP157.txt")
+colnames(depth2) <- c("CHROM","POS","DEPTH")
+
+depth3 <- read.table("Input/Barcode3_21-SS-HIP-5533_v5_depth.txt")
+colnames(depth3) <- c("CHROM","POS","DEPTH")
+
+depth4 <- read.table("Input/Barcode4_20-SS-HS-HYP157_v5_depth.txt")
+colnames(depth4) <- c("CHROM","POS","DEPTH")
+
+adapt1 <- read.table("Output/NanoporeRegionSelection_040424.txt")
+colnames(adapt1) <- c("CHROM", "START", "END")
+
+adapt2 <- read.table("Output/NanoporeRegionSelection_061224.txt")
+colnames(adapt2) <- c("CHROM", "START", "END")
+```
+
+### match depth to nanopore adaptive regions
+```{r}
+## match file to adaptive sequencing
+adapt1$LENGTH <- adapt1$END - adapt1$START
+adapt1$NAME <- paste0(adapt1$CHROM,":",adapt1$START,"-",adapt1$END,",", adapt1$LENGTH)
+adapt2$LENGTH <- adapt2$END - adapt2$START
+adapt2$NAME <- paste0(adapt2$CHROM,":",adapt2$START,"-",adapt2$END,",", adapt2$LENGTH)
+
+depth1$NAME <- NA
+depth2$NAME <- NA
+depth3$NAME <- NA
+depth4$NAME <- NA
+
+for (i in 1:nrow(adapt1)) {
+  depth1$NAME[which(depth1$CHROM == adapt1$CHROM[i] &
+                      depth1$POS >= adapt1$START[i] &
+                      depth1$POS < adapt1$END[i])] <- adapt1$NAME[i]
+  
+  depth2$NAME[which(depth2$CHROM == adapt1$CHROM[i] &
+                      depth2$POS >= adapt1$START[i] &
+                      depth2$POS < adapt1$END[i])] <- adapt1$NAME[i]
+}
+
+for (i in 1:nrow(adapt2)) {
+  depth3$NAME[which(depth3$CHROM == adapt2$CHROM[i] &
+                      depth3$POS >= adapt2$START[i] &
+                      depth3$POS < adapt2$END[i])] <- adapt2$NAME[i]
+  
+  depth4$NAME[which(depth4$CHROM == adapt2$CHROM[i] &
+                      depth4$POS >= adapt2$START[i] &
+                      depth4$POS < adapt2$END[i])] <- adapt2$NAME[i]
+}
+```
+
+### Put files together
+```{r}
+summ1 <- depth1 %>% 
+  group_by(NAME) %>% 
+  summarise(avg1 = mean(DEPTH),
+            med1 = median(DEPTH)) %>% 
+  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",")
+
+summ2 <- depth2 %>% 
+  group_by(NAME) %>% 
+  summarise(avg2 = mean(DEPTH),
+            med2 = median(DEPTH)) %>% 
+  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",")
+
+summ3 <- depth3 %>% 
+  group_by(NAME) %>% 
+  summarise(avg3 = mean(DEPTH),
+            med3 = median(DEPTH)) %>% 
+  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",") %>% 
+  filter(!is.na(NAME))
+
+summ4 <- depth4 %>% 
+  group_by(NAME) %>% 
+  summarise(avg4 = mean(DEPTH),
+            med4 = median(DEPTH)) %>% 
+  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",")%>% 
+  filter(!is.na(NAME))
+
+
+
+summall <- full_join(summ1,summ2,by = c("NAME","LENGTH"))
+summall <- full_join(summall,summ3,by = c("NAME","LENGTH"))
+summall <- full_join(summall,summ4,by = c("NAME","LENGTH"))
+
+summ1$Barcode <- "Barcode1"
+summ2$Barcode <- "Barcode2"
+summ3$Barcode <- "Barcode3"
+summ4$Barcode <- "Barcode4"
+
+depth3$Barcode <- "Barcode3"
+depth4$Barcode <- "Barcode4"
+```
+
+
+### Figures
+```{r}
+rbind(depth3,depth4) |>
+  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",") %>% 
+  group_by(NAME,Barcode) %>% 
+  reframe(spot=POS-min(POS)+1,
+            DEPTH=DEPTH) %>% 
+  filter(!is.na(NAME)) %>% 
+  ggplot(aes(x=spot,y=DEPTH,color=Barcode))+
+  facet_wrap(~NAME,scales = "free")+
+  geom_line(alpha=0.6) +
+  theme_bw()
+
+rbind(depth1,depth2) |>
+  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",") %>% 
+  group_by(NAME,Barcode) %>% 
+  reframe(spot=POS-min(POS)+1,
+          DEPTH=DEPTH,
+          LENGTH=LENGTH) %>% 
+  filter(!is.na(NAME)) %>% 
+  ggplot(aes(x=spot,y=DEPTH,group=NAME,color=as.numeric(LENGTH)))+
+  facet_wrap(~Barcode,scales = "free")+
+  geom_line()+
+  scale_color_viridis_c(option="magma")+
+  theme_bw()
+
+rbind(depth3,depth4) |>
+  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",") %>% 
+  group_by(NAME,Barcode) %>% 
+  reframe(spot=POS-min(POS)+1,
+          DEPTH=DEPTH,
+          LENGTH=LENGTH) %>% 
+  filter(!is.na(NAME)) %>% 
+  ggplot(aes(x=spot,y=DEPTH,group=NAME,color=as.numeric(LENGTH)))+
+  facet_wrap(~Barcode,scales = "free")+
+  geom_line()+
+  scale_color_viridis_c(option="magma")+
+  theme_bw()
+ 
+##Pairwise plots
+par(mfrow = c(2,3))
+plot(summ1$med1,summ2$med2,xlab = "Barcode 1 - Age 4", ylab = "Barcode 2 - Age 15",xlim = c(0,600),ylim = c(0,600))
+plot(summ1$med1,summ3$med3,xlab = "Barcode 1 - Age 4", ylab = "Barcode 3 - Age 4",xlim = c(0,600),ylim = c(0,600))
+plot(summ1$med1,summ4$med4,xlab = "Barcode 1 - Age 4", ylab = "Barcode 4 - Age 15",xlim = c(0,600),ylim = c(0,600))
+plot(summ2$med2,summ3$med3,xlab = "Barcode 2 - Age 15", ylab = "Barcode 3 - Age 4",xlim = c(0,600),ylim = c(0,600))
+plot(summ2$med2,summ4$med4,xlab = "Barcode 2 - Age 15", ylab = "Barcode 4 - Age 15",xlim = c(0,600),ylim = c(0,600))
+plot(summ3$med3,summ4$med4,xlab = "Barcode 3 - Age 4", ylab = "Barcode 4 - Age 15",xlim = c(0,600),ylim = c(0,600))
+```
+
+```{r}
+depall <- rbind(depth1,depth2)
+depall <- rbind(depall,depth3)
+depall <- rbind(depall,depth4)
+
+CpGs_clock <- read.csv("Output/CpGList_LengthAge.csv")
+
+depth_CpGs <- depall[which(depall$CHROM == CpGs_clock$CHROM[1] & depall$POS == CpGs_clock$POS[1]),]
+
+for (i in 2:nrow(CpGs_clock)) {
+  depth_CpGs <- rbind(depth_CpGs,depall[which(depall$CHROM == CpGs_clock$CHROM[i] & depall$POS == CpGs_clock$POS[i]),])
+}
+
+depth_CpGs$type <- paste(depth_CpGs$RUN,depth_CpGs$INDIVID,sep = ": ")
+depth_CpGs$CpG <- paste(depth_CpGs$CHROM,depth_CpGs$POS,sep = "_")
+
+depth_CpGs$Depth <- NA
+
+depth_CpGs$Depth[which(depth_CpGs$DEPTH < 50)] <- "0-50"
+#depth_CpGs$Depth[which(depth_CpGs$DEPTH > 50 & depth_CpGs$DEPTH <= 100)] <- "50-100"
+#depth_CpGs$Depth[which(depth_CpGs$DEPTH > 100 & depth_CpGs$DEPTH <= 200)] <- "100-200"
+#depth_CpGs$Depth[which(depth_CpGs$DEPTH > 200 & depth_CpGs$DEPTH <= 300)] <- "200-300"
+#depth_CpGs$Depth[which(depth_CpGs$DEPTH > 300 & depth_CpGs$DEPTH <= 400)] <- "300-400"
+depth_CpGs$Depth[which(depth_CpGs$DEPTH >= 50 & depth_CpGs$DEPTH <= 500)] <- "50-500"
+depth_CpGs$Depth[which(depth_CpGs$DEPTH > 500)] <- "500+"
+
+#tiff(filename = "Figures/NanoporeDepthComp_justCpGs.tiff",width = 150,height = 150,units = "mm",res = 400)
+ggplot(depth_CpGs,aes(x=type,y=CpG,fill = Depth))+
+  geom_tile(color = "white",
+            lwd = 0.5,
+            linetype = 1)+
+  facet_wrap(~type,scales = "free_x",ncol = 4)+
+  #coord_fixed(expand = FALSE) +
+  scale_fill_paletteer_d("nationalparkcolors::Acadia")+
+  labs(y = "CpG site in Epigenetic Age Prediction (n = 87)")+
+  scale_x_discrete(position = "top") +
+  ggtitle("Nanopore Sequencing Depth at Targeted CpG Sites")+
+  theme(axis.text.y = element_blank(),axis.ticks = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.y = element_text(margin = margin(r = -5), size = 12),
+        strip.text = element_text(size = 12,color = "black"),
+        strip.background = element_blank(),
+        panel.background = element_blank(),
+        plot.title = element_text(size = 14,face = "bold"),
+        legend.position = "none")
+#dev.off()
+```
+

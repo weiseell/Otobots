@@ -1,0 +1,229 @@
+##################
+### Pipeline Description: The Rmarkdown series here assumes that we're starting with a file organized as a table between 
+### individuals and CpG sites, containing percent methylation values. Sequencing data generally arrives as read data that
+### is demultiplexed for each individual but is unfiltered and not aligned to the reference genome. This script series 
+### was used to process whole-genome data treated with a Methyl-Seq ezymatic treatment sequenced with an Illumina 
+### Novogene X machine. The methyl-seq treatment produces reads with the same format as bisulfite-treated sequences, and 
+### thus the same bioinformatic tools can be used to process the reads. 
+
+## Individual Steps
+
+## 1.fastqc.sh
+## Objective: produce a fastqc file for all fastq.gz files for a given Illumina run
+## Written by: EM Weise
+## Last edited: May 14, 2024
+
+#!/bin/bash
+#SBATCH --time=1-00:00
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=emweise@dal.ca
+#SBATCH --nodes=1
+#SBATCH --mem=60G
+#SBATCH --cpus-per-task=32
+
+
+#Load modules
+module load StdEnv/2020
+module load fastqc/0.11.9
+
+#program name + output destination + number threads + defined files (in this case, unique file name(s))
+#move into folder with fastq.gz files
+cd projects/def-ruzza/emweise/MethylWild2023_Part1
+
+#run fastqc on every file that has the extension .fastq.gz
+fastqc -o ./fastqc/ -t 30 *fastq.gz
+
+#-----------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------
+
+
+## 2.TrimAdaptors
+## Written by: EM Weise
+## Last edited: May 14, 2024
+#Description: Use adaptors to trim reads, set minimum read length to 40
+#-------------------------------------
+RUNPATH=/home/emweise/projects/def-ruzza/emweise/MethylWild2023_Part2
+#mkdir $RUNPATH/trimmed
+
+cd $RUNPATH
+
+#pipe to create unique individual names for all files, and run a while loop to create a trimmomatic script for each file
+ls | grep "MethylWild2023" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
+do
+echo '#!/bin/bash
+#SBATCH --time=02:00:00
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=emweise@dal.ca
+#SBATCH --nodes=1
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=32
+#SBATCH -J Trim_'$line'
+#SBATCH -o '$RUNPATH'/QSTAT/Trim/Trim.'$line'.o
+
+#Load modules
+module purge
+module load StdEnv/2020
+module load trimmomatic/0.39
+
+RUNPATH=/home/emweise/projects/def-ruzza/emweise/MethylWild2023_Part2
+cd '$RUNPATH'/trimmed
+
+java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE -threads 30 '$RUNPATH'/'$line'_R1_001.fastq.gz '$RUNPATH'/'$line'_R2_001.fastq.gz  '$line'_R1_paired.fastq.gz '$line'_R1_unpaired.fastq.gz '$line'_R2_paired.fastq.gz '$line'_R2_unpaired.fastq.gz ILLUMINACLIP:adapters.fa:2:30:10:2:true  MINLEN:40
+
+#write the script into the 'Trim' folder
+scontrol show job ${SLURM_JOB_ID}'| cat > $RUNPATH/Scripts/Trim/Trim.$line.sh
+
+#run the script
+sbatch $RUNPATH/Scripts/Trim/Trim.$line.sh
+
+#end loop
+done
+
+#-----------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------
+
+## 3.AlignReads
+## Written by: EM Weise
+## Last edited: May 14, 2024
+## Description: Use bismark to align ME-seq reads to the reference genome
+
+#-------------------------------------
+
+RUNPATH=/home/emweise/projects/rrg-ruzza/emweise/MethylWild2023_Part2
+GENOME=/home/emweise/projects/rrg-ruzza/emweise/referencegenome
+
+mkdir $RUNPATH/aligned
+mkdir $RUNPATH/Scripts/Align
+mkdir $RUNPATH/QSTAT/Align
+
+cd $RUNPATH
+
+ls | grep "MethylWild2023" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
+do
+echo '#!/bin/bash
+#SBATCH --time=24:00:00
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=emweise@dal.ca
+#SBATCH --nodes=1
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=32
+#SBATCH -J Align_'$line'
+#SBATCH -o '$RUNPATH'/QSTAT/Align/Align.'$line'.o
+
+#Load modules
+module load StdEnv/2020
+module load bismark/0.22.3 bowtie2/2.4.1 samtools/1.16.1
+
+cd '$RUNPATH'/aligned
+
+#Load 3 modules
+module load StdEnv/2020
+module load bismark/0.22.3 bowtie2/2.4.1 samtools/1.16.1
+
+#align with reference genome (./ if working directory is 3EMseq_maps)
+bismark --multicore 2 --bowtie2 '$GENOME' -1 '$RUNPATH'/trimmed/'$line'_R1_paired.fastq.gz -2 '$RUNPATH'/trimmed/'$line'_R2_paired.fastq.gz
+
+scontrol show job ${SLURM_JOB_ID}'| cat > $RUNPATH/Scripts/Align/Align_$line.sh
+
+sbatch $RUNPATH/Scripts/Align/Align_$line.sh
+
+done
+
+#-----------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------
+
+## 4.MethylProfile
+## Written by: EM Weise
+## Last edited: May 14, 2024
+#Description: Use bismark to align ME-seq reads to the reference genome
+
+#-------------------------------------
+
+RUNPATH=/home/emweise/projects/rrg-ruzza/emweise/MethylWild2023_Part2
+
+cd $RUNPATH
+mkdir $RUNPATH/QSTAT/Profile
+mkdir $RUNPATH/Scripts/Profile
+
+ls | grep "MethylWild2023" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
+do
+echo '#!/bin/bash
+#SBATCH --time=24:00:00
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=emweise@dal.ca
+#SBATCH --nodes=1
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=32
+#SBATCH -J Profile_'$line'
+#SBATCH -o '$RUNPATH'/QSTAT/Profile/Profile.'$line'.o
+
+module load StdEnv/2020
+module load gcc/9.3.0 perl/5.30.2 bismark/0.22.3 bowtie2/2.4.1 samtools/1.16.1
+
+cd '$RUNPATH'/aligned
+
+#1 - deduplication
+#-p defines it as paired-end reads
+
+deduplicate_bismark -p --bam '$RUNPATH'/aligned/'$line'_R1_paired_bismark_bt2_pe.bam
+
+#2 - Methylation profiles 'extraction' on the deduplicated .bam files which were just created
+
+bismark_methylation_extractor -p --gzip --bedGraph '$RUNPATH'/aligned/'$line'_R1_paired_bismark_bt2_pe.deduplicated.bam
+
+#3 - This command outputs three methylation output files (CpG, CHG, CHH all .gz), a bedGraph, and Bismark coverage file.
+
+bismark2report
+bismark2summary
+
+
+scontrol show job ${SLURM_JOB_ID}'| cat > $RUNPATH/Scripts/Profile/Profile_$line.sh
+
+sbatch $RUNPATH/Scripts/Profile/Profile_$line.sh
+
+done
+
+#-----------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------
+
+## 5.SortIndex
+## Written by: EM Weise
+## Last edited: May 14, 2024
+## Description: use samtools to sort and index the aligned and profiled reads
+#-------------------------------------
+
+RUNPATH=/home/emweise/projects/rrg-ruzza/emweise/MethylWild2023_Part2
+GENOME=/home/emweise/projects/rrg-ruzza/emweise/referencegenome
+
+cd $RUNPATH
+mkdir $RUNPATH/QSTAT/SortIndex
+mkdir $RUNPATH/Scripts/SortIndex
+
+ls | grep "MethylWild2023" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
+do
+echo '#!/bin/bash
+#SBATCH --time=8:00:00
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=emweise@dal.ca
+#SBATCH --nodes=1
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=32
+#SBATCH -J SortIndex_'$line'
+#SBATCH -o '$RUNPATH'/QSTAT/SortIndex/SortIndex.'$line'.o
+
+module load StdEnv/2020
+module load samtools/1.16.1
+
+cd $RUNPATH/aligned
+
+samtools sort '$RUNPATH'/aligned/'$line'_R1_paired_bismark_bt2_pe.deduplicated.bam -o '$RUNPATH'/aligned/'$line'_R1_paired_bismark_bt2_pe_sorted.bam
+samtools index '$RUNPATH'/aligned/'$line'_R1_paired_bismark_bt2_pe_sorted.bam
+
+scontrol show job ${SLURM_JOB_ID}'| cat > $RUNPATH/Scripts/SortIndex/SortIndex_$line.sh
+
+sbatch $RUNPATH/Scripts/SortIndex/SortIndex_$line.sh
+
+done
+
+#-----------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------

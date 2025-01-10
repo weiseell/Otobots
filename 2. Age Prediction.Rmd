@@ -7,7 +7,8 @@ output: html_document
 
 Once we run the elastic net model with all potential CpGs, we do the actual age prediction with those sites. Prediction can also be done with one-step, using the elastic net with all sites. But generally literature with whole-genome data has done two sets of elastic nets because the correlations are stronger with less noise, and the clock is able to be scaled without doing more whole genome sequencing. That is, we could do targeted sequencing and add it to the same clock instead of needing all the sites.
 
-## 
+## Run Clock with Only Selected Sites
+
 ```{r,message=F}
 ###run clock with best CpG sites
 CpGlist_best_comb <- read.csv(file = "Output/CpGList_LengthAge.csv")
@@ -25,7 +26,7 @@ library(ggforce)
 
 ```
 
-
+### Preparing data for elastic net
 ```{r}
 ## Data prep ####
 #remove CpGs with NAs for the model
@@ -55,6 +56,8 @@ sexdata_m <- sexdata %>%
   filter(ObsSex == 1)
 ```
 
+
+### Separating into Training and Testing Data Sets 
 ```{r}
 #randomly select individuals for testing
 testpick <- sexdata %>% 
@@ -72,6 +75,8 @@ traindat <- allCpGs1[which(!(allCpGs1$indivname %in% testpick$indivname)),]
 traindat <- full_join(trainpick,traindat,by = "indivname")
 ```
 
+
+### Run Elastic Net Model on Training Set and Predict Test Set
 ```{r,warning=F}
 ## Full Data Model ####
 #select data and run glmnet to select sites
@@ -107,6 +112,7 @@ test_MAE <- median(abs(exp(ytest) - exp(pred_logage_test[ ,1])))
 
 ```
 
+### Repeat Clock for female and male-only data sets
 ```{r,warning=F}
 ##Sex-separated clocks ####
 #female clock
@@ -163,6 +169,9 @@ test_MAE_m <- median(abs(exp(ytestm) - exp(pred_logage_test_m[ ,1])))
 
 ```
 
+## Figures
+
+### correlation and MAE values for all three models
 ```{r}
 ##Plots ####
 ## make results into dataframes
@@ -213,6 +222,7 @@ ggplot(res_merged,aes(x = type, y = AbsErr)) +
 
 ```
 
+### Alternate data presentations
 ```{r}
 # Sorting clock by length percentile
 plotdata <- res_merged[,c(-1,-4:-5)]
