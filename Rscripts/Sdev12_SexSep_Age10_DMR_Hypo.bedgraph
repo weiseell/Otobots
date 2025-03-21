@@ -1,0 +1,2 @@
+track type=bedGraph name='Sdev12_SexSep_Age10_DMR_Hypo.bedgraph' description='qvalue' visibility=full color=255,0,255 altColor=102,205,170 maxHeightPixels=80:80:11  
+NC_047164.1	12659000	12660000	0.0000000000000000000000000000000000000000000000000000000000000000092213276377448

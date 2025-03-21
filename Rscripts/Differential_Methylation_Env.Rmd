@@ -34,20 +34,21 @@ methraw1A = processBismarkAln(location = "Ch1AWGBS_Sorted.bam", sample.id = "Ch1
 ```{r}
 ## Create methylkit object - Age 4 comparison
 # Next let's make a file list showing the path to the processed files!
-file.list2 = list (file.path("MethylKitInput", "HPEI_Age4_0020_CpG.txt"), 
-                   file.path("MethylKitInput", "HPEI_Age4_0033_CpG.txt"), 
-                   file.path("MethylKitInput", "HPEI_Age4_0035_CpG.txt"),
-                   file.path("MethylKitInput", "HPEI_Age4_0049_CpG.txt"), 
-                   file.path("MethylKitInput", "HPEI_Age4_0055_CpG.txt"), 
-                   file.path("MethylKitInput", "HPEI_Age4_0070_CpG.txt"), 
-                   file.path("MethylKitInput", "MethylWild2023_Age4_HIP_93_CpG.txt"),
-                   file.path("MethylKitInput", "MethylWild2023_Age4_HIP_5490_CpG.txt"), 
-                   file.path("MethylKitInput", "MethylWild2023_Age4_HIP_5498_CpG.txt"), 
-                   file.path("MethylKitInput", "MethylWild2023_Age4_HIP_5513_CpG.txt"),
-                   file.path("MethylKitInput", "MethylWild2023_Age4_HIP_5520_CpG.txt")) 
+# only female samples due to limitations at hatchery
+file.list2 = list (file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age4_0020_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age4_0033_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age4_0035_CpG.txt"),
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age4_0049_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age4_0055_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age4_0070_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "MethylWild2023_Age4_HIP_93_CpG.txt"),
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "MethylWild2023_Age4_HIP_5490_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "MethylWild2023_Age4_HIP_5498_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "MethylWild2023_Age4_HIP_5513_CpG.txt"),
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "MethylWild2023_Age4_HIP_5520_CpG.txt")) 
 
 # Now we need to read the files using 'methRead'. Each file contains the methylation calls for a given sample
-myobj3 = methRead(file.list2, sample.id = list("HPEI_Age4_0020", "HPEI_Age4_0033", "HPEI_Age4_0035", "HPEI_Age4_0049", "HPEI_Age4_0055", "HPEI_Age4_0070",  "MethylWild2023_Age4_HIP_93", "MethylWild2023_Age4_HIP_5490", "MethylWild2023_Age4_HIP_5498", "MethylWild2023_Age4_HIP_5513", "MethylWild2023_Age4_HIP_5520"), assembly = "GCF_009819705.1_fHipHip1.pri_genomic", treatment = c(1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2), context = "CpG", mincov = 10)
+myobj_Age4 = methRead(file.list2, sample.id = list("HPEI_Age4_0020", "HPEI_Age4_0033", "HPEI_Age4_0035", "HPEI_Age4_0049", "HPEI_Age4_0055", "HPEI_Age4_0070",  "MethylWild2023_Age4_HIP_93", "MethylWild2023_Age4_HIP_5490", "MethylWild2023_Age4_HIP_5498", "MethylWild2023_Age4_HIP_5513", "MethylWild2023_Age4_HIP_5520"), assembly = "GCF_009819705.1_fHipHip1.pri_genomic", treatment = c(1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2), context = "CpG", mincov = 10)
 ```
 
 myobj4 = methRead(file.list2, sample.id = list("Ch4WGBS", "Ch5WGBS", "Ch6WGBS", "Ch22WGBS", "Ch23WGBS", "Ch24WGBS"), assembly = "GCF_900700415.1_Ch_v2.0.2_genomic", treatment = c(1, 1, 1, 2, 2, 2), context = "CpG", dbtype = "tabix", dbdir = "methylDB", mincov = 10)
@@ -55,36 +56,36 @@ myobj4 = methRead(file.list2, sample.id = list("Ch4WGBS", "Ch5WGBS", "Ch6WGBS", 
 ```{r}
 ## Create methylkit object - Age 8 comparison
 # Next let's make a file list showing the path to the processed files!
-file.list2 = list (file.path("MethylKitInput", "HPEI_Age8_0013_CpG.txt"), 
-                   file.path("MethylKitInput", "HPEI_Age8_0025_CpG.txt"), 
-                   file.path("MethylKitInput", "HPEI_Age8_0032_CpG.txt"),
-                   file.path("MethylKitInput", "HPEI_Age8_0046_CpG.txt"), 
-                   file.path("MethylKitInput", "HPEI_Age8_0056_CpG.txt"), 
-                   file.path("MethylKitInput", "HPEI_Age8_0071_CpG.txt"), 
-                   file.path("MethylKitInput", "MethylWild2023_Age8_HYP_250_CpG.txt"),
-                   file.path("MethylKitInput", "MethylWild2023_Age8_HYP_530_CpG.txt"), 
-                   file.path("MethylKitInput", "MethylWild2023_Age8_HYP_593_CpG.txt"), 
-                   file.path("MethylKitInput", "MethylWild2023_Age8_HYP_618_CpG.txt"),
-                   file.path("MethylKitInput", "MethylWild2023_Age8_HYP_90_CpG.txt")) 
+file.list2 = list (file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age8_0013_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age8_0025_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age8_0032_CpG.txt"),
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age8_0046_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age8_0056_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "HPEI_Age8_0071_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "MethylWild2023_Age8_HYP_250_CpG.txt"),
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "MethylWild2023_Age8_HYP_530_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "MethylWild2023_Age8_HYP_593_CpG.txt"), 
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "MethylWild2023_Age8_HYP_618_CpG.txt"),
+                   file.path("E:/ClonedRepositories/Otobots/MethylKitInput", "MethylWild2023_Age8_HYP_90_CpG.txt")) 
 
 # Now we need to read the files using 'methRead'. Each file contains the methylation calls for a given sample
-myobj3 = methRead(file.list2, sample.id = list("HPEI_Age8_0013", "HPEI_Age8_0025", "HPEI_Age8_0032", "HPEI_Age8_0046", "HPEI_Age8_0056", "HPEI_Age8_0071",  "MethylWild2023_Age8_HIP_250", "MethylWild2023_Age8_HIP_530", "MethylWild2023_Age8_HIP_593", "MethylWild2023_Age8_HIP_618", "MethylWild2023_Age8_HIP_90"), assembly = "GCF_009819705.1_fHipHip1.pri_genomic", treatment = c(1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2), context = "CpG", mincov = 10)
+myobj_Age8 = methRead(file.list2, sample.id = list("HPEI_Age8_0013", "HPEI_Age8_0025", "HPEI_Age8_0032", "HPEI_Age8_0046", "HPEI_Age8_0056", "HPEI_Age8_0071",  "MethylWild2023_Age8_HIP_250", "MethylWild2023_Age8_HIP_530", "MethylWild2023_Age8_HIP_593", "MethylWild2023_Age8_HIP_618", "MethylWild2023_Age8_HIP_90"), assembly = "GCF_009819705.1_fHipHip1.pri_genomic", treatment = c(1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2), context = "CpG", mincov = 10)
 ```
 
 # 2.0 MethylKit quality control
 ```{r}
 # At this point we can also do quality check before proceeding with the rest of the analyses. There are two different QCs that I recommend.The first is methylation distribution.
 
-getMethylationStats(myobj3[[8]], plot=TRUE, both.strands=FALSE) #Replace [[2]] with sample of interest!
+getMethylationStats(myobj_Age4[[8]], plot=TRUE, both.strands=FALSE) #Replace [[2]] with sample of interest!
 
 #This looks at the distribution of methylation values. We expect a bimodal distribution where most CpGs have either high methylation or low methylation. Lack of bimodal suggests poor experimental quality including issues with bisulfite treatments. 
 
 #Next we have CpG coverage. Bases with unusually high coverage are of concern as it can indicate PCR bias. Here we use 'getCoverageStats'.
 
-getCoverageStats(myobj3[[8]], plot=TRUE, both.strands=FALSE) #Again, replace [[2]] with sample of interest.
+getCoverageStats(myobj_Age4[[8]], plot=TRUE, both.strands=FALSE) #Again, replace [[2]] with sample of interest.
 
 #If we need to filter samples based on read coverage, then use 'filterByCoverage'. The function below discards bases that have 10x> coverage and those that have more than 99.9th percentile of coverage in each sample.
-filtered.myobj=filterByCoverage(myobj3,lo.count=10,lo.perc=NULL,hi.count=NULL,hi.perc=99.9)
+filtered.myobj=filterByCoverage(myobj_Age4,lo.count=10,lo.perc=NULL,hi.count=NULL,hi.perc=99.9)
 
 #The vignette also recommends normalizing coverage distributions across samples, which is always a great idea so below is the code:
 normalized.myobj=normalizeCoverage(filtered.myobj)
@@ -139,13 +140,13 @@ myDiff25p.hyper=getMethylDiff(myDiff,difference=10,qvalue=0.01,type="hyper")
 myDiff25p.hypo=getMethylDiff(myDiff,difference=10,qvalue=0.01,type="hypo")
 myDiff25p=getMethylDiff(myDiff,difference=10,qvalue=0.01)
 
-bedgraph(myDiff25p.hyper, file.name = "Sdev12_age8_CpG_hyper.bedgraph", col.name = "qvalue")
-bedgraph(myDiff25p.hypo, file.name = "Sdev12_age8_CpG_hypo.bedgraph", col.name = "qvalue")
-bedgraph(myDiff25p, file.name = "Sdev12_age8_CpG_all.bedgraph", col.name = "qvalue")
+bedgraph(myDiff25p.hyper, file.name = "Sdev12_age4_CpG_hyper.bedgraph", col.name = "qvalue")
+bedgraph(myDiff25p.hypo, file.name = "Sdev12_age4_CpG_hypo.bedgraph", col.name = "qvalue")
+bedgraph(myDiff25p, file.name = "Sdev12_age4_CpG_all.bedgraph", col.name = "qvalue")
 
 DiffMethPerChrS2 = diffMethPerChr(myDiff,plot=FALSE,qvalue.cutoff=0.01, meth.cutoff=5)
 
-write.csv(DiffMethPerChrS2, file = "DiffMethPerChr_age8.csv")
+write.csv(DiffMethPerChrS2, file = "DiffMethPerChr_age4.csv")
 ```
 
 
@@ -171,14 +172,14 @@ meth.tiles = unite(tiles2, destrand = TRUE, save.db = TRUE)
 
 myDiff.tiles2 = calculateDiffMeth(meth.tiles)
 myDiff.tiles2.all = getMethylDiff(myDiff.tiles2, qvalue = 0.1, difference = 10, type = "all")
-bedgraph(myDiff.tiles2.all, file.name = "Sdev12_T11_12h_DMR_All.bedgraph", col.name = "qvalue")
+bedgraph(myDiff.tiles2.all, file.name = "Sdev12_Age4_DMR_All.bedgraph", col.name = "qvalue")
 
 myDiff.tiles2.hyper = getMethylDiff(myDiff.tiles2, qvalue = 0.1, difference = 10, type = "hyper")
-#bedgraph(myDiff.tiles2.hyper, file.name = "Sdev12_T11_12h_DMR_Hyper.bedgraph", col.name = "qvalue")
+#bedgraph(myDiff.tiles2.hyper, file.name = "Sdev12_Age4_DMR_Hyper.bedgraph", col.name = "qvalue")
 
 
 myDiff.tiles2.hypo = getMethylDiff(myDiff.tiles2, qvalue = 0.1, difference = 10, type = "hypo")
-bedgraph(myDiff.tiles2.hypo, file.name = "Sdev12_T11_12h_DMR_Hypo.bedgraph", col.name = "qvalue")
+bedgraph(myDiff.tiles2.hypo, file.name = "Sdev12_Age4_DMR_Hypo.bedgraph", col.name = "qvalue")
 ```
 
 
@@ -208,3 +209,15 @@ rm(tiles2)
 rm(meth2)
 rm(meth.tiles2)
 rm(file.list2)
+
+# CpG Annotations
+## load annotation data
+```{r}
+library(genomation)
+```
+
+```{r}
+file.loc <- system.file("E:/ClonedRepositories/Otobots/MethylKitInput/GCF_009819705.1_fHipHip1.pri_feature_table.txt", package = "genomation")
+gene.obj <- readTranscriptFeatures("E:/ClonedRepositories/Otobots/MethylKitInput/GCF_009819705.1_fHipHip1.pri_feature_table.txt")
+```
+
