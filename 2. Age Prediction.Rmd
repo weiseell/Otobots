@@ -14,7 +14,7 @@ Once we run the elastic net model with all potential CpGs, we do the actual age 
 CpGlist_best_comb <- read.csv(file = "Output/CpGList_LengthAge.csv")
 ##load data
 # if doing clock from scratch
-load("Input/allCpGs_nosingletons.rda")
+load("Input/allCpGs_AddAge1629Samples_nonas.rda")
 sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
 
 #load libraries
@@ -45,6 +45,10 @@ allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047158.1",
 allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047162.1",
                                     colnames(allCpGs1),perl = T)))]
 
+# check nas across individuals
+# should be zero!!
+nas_row <- rowSums(is.na(allCpGs1))
+
 #log age data
 sexdata <- sexdata %>% 
   mutate(LogAge = log(Age),LogLen = log(Length))
@@ -64,6 +68,9 @@ testpick <- sexdata %>%
   group_by(Age,ObsSex) %>% 
   slice_sample(n = 1)
 
+# remove a set of the 20+ individuals for training
+testpick <- testpick[1:(nrow(testpick)-2),]
+testpick <- testpick[-22,]
 #sort other individuals into training data
 trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
 
@@ -195,12 +202,12 @@ res_comb_all_m <- res_comb_all_m %>% mutate(Age=exp(LogAge),EpiAge=exp(s1))
 res_comb_all_m$ModelName <- "Male Only"
 
 res_merged <- rbind(res_comb_all,res_comb_all_f,res_comb_all_m)
-
+#jpeg(file = "Figures/AgingClock_Combined_AgeLengthCpGs_AddAge1623.jpeg", width = 800, height = 480)
 ggplot(res_merged,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = type))+
   facet_grid(~ModelName) +
   geom_point(size = 3.5)+
   geom_jitter(height = 0,width = 0.1)+
-  ylim(0, 17) + xlim(0, 17) +
+  ylim(0, 30) + xlim(0, 30) +
   geom_abline(slope = 1,intercept = 0) +
   xlab("Otolith Age (years)") +
   ylab("Molecular clock Age (years)") +
@@ -208,6 +215,7 @@ ggplot(res_merged,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = type
   scale_color_manual(values = c(wes_palette("IsleofDogs1")[1],wes_palette("IsleofDogs1")[3]))+
   theme_classic(base_size = 18) + 
   theme(legend.position = "none")
+#dev.off()
 
 #MAE values
 res_merged$AbsErr <- abs(res_merged$Age - res_merged$EpiAge)
@@ -236,7 +244,7 @@ plotdata %>%
   geom_point(size = 3.5) +
   scale_color_gradient(low = "grey", high = "darkblue") +
   geom_jitter(height = 0,width = 0.1) +
-  ylim(0, 17) + xlim(0, 17) +
+  ylim(0, 30) + xlim(0, 30) +
   geom_abline(slope = 1,intercept = 0) +
   xlab("Otolith Age (years)") +
   ylab("Molecular clock Age (years)") +

@@ -7,7 +7,7 @@ output: html_document
 
 ```{r,echo=F,warning=F,message=F}
 ##load data
-load("Input/allCpGs_nosingletons.rda")
+load("Input/allCpGs_AddAge1629Samples_nonas.rda")
 sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
 
 #load libraries
@@ -51,7 +51,7 @@ sexdata <- sexdata %>%
 
 ```{r}
 #create blank objects for storing outputs in loop
-modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 13))
+modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 5))
 colnames(modelout) <- c("Train_cor","Test_cor","Train_MAE","Test_MAE","lambda.1se")
 CpGlist <- list()
 
@@ -84,7 +84,7 @@ for (i in 1:100) {
   traindat <- full_join(trainpick,traindat,by = "indivname")
   
   #select data and run glmnet to select sites
-  y <- traindat$LogAge
+  y <- as.matrix(traindat$LogAge)
   x <- as.matrix(traindat[,-1:-6])
   
   model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 10)
@@ -153,7 +153,7 @@ top_CpG_group <- counting %>%
 ## Repeat Loop with Length
 ```{r}
 #create blank objects for storing outputs in loop
-modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 13))
+modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 5))
 colnames(modelout) <- c("Train_cor","Test_cor","Train_MAE","Test_MAE","lambda.1se")
 CpGlist <- list()
 
@@ -253,7 +253,7 @@ top_CpG_group_len <- counting %>%
 ```{r}
 CpGlist_best_comb <- unique(rbind(top_CpG_group,top_CpG_group_len))
 
-#write.csv(CpGlist_best_comb,file = "Output/CpGList_LengthAge.csv",row.names = F)
+write.csv(CpGlist_best_comb,file = "Output/CpGList_LengthAge_addAge1629.csv",row.names = F)
 ```
 
 ## Figures
@@ -291,6 +291,24 @@ bestCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_best_comb$CpGlist_be
 bestCpGs <- cbind(indivname=allCpGs1$indivname,bestCpGs)
 tmp <- sexdata[,1:3]
 jpeg(file = "Figures/PerCpGOtolith.jpeg", width = 1200, height = 1000)
+tmp %>% full_join(bestCpGs,by = "indivname") %>% 
+  gather(key = "CpG", value = "Methyl",-indivname,-ObsSex,-Age) %>% 
+  #filter(CpG == "NC_047159.1.29166055" | CpG == "NC_047153.1.32666785" | CpG == "NC_047163.1.29070020") %>% 
+  ggplot(aes(x = Age, y = Methyl, color = ObsSex))+
+  geom_point()+
+  facet_wrap(~CpG,scales = "free_y")+
+  xlab("Otolith Age Estimate") +
+  ylab("Percent Methylation") +
+  ggtitle("Otolith Age vs. Percent Methylation per CpG") +
+  theme_bw()+
+  theme(legend.position = "none")
+dev.off()
+
+#similar plot for CpGs selected with just age 4 to 15 data
+bestCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_best_comb_age4to15$CpGlist_best)]
+bestCpGs <- cbind(indivname=allCpGs1$indivname,bestCpGs)
+tmp <- sexdata[,1:3]
+jpeg(file = "Figures/PerCpGOtolith_Age4to15CpGs.jpeg", width = 1200, height = 1000)
 tmp %>% full_join(bestCpGs,by = "indivname") %>% 
   gather(key = "CpG", value = "Methyl",-indivname,-ObsSex,-Age) %>% 
   #filter(CpG == "NC_047159.1.29166055" | CpG == "NC_047153.1.32666785" | CpG == "NC_047163.1.29070020") %>% 
