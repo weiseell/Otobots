@@ -186,23 +186,23 @@ test_MAE_m <- median(abs(exp(ytestm) - exp(pred_logage_test_m[ ,1])))
 train_res <- data.frame(indivname=traindat$indivname,ObsSex=traindat$ObsSex,Length=traindat$Length,LogAge=y,LogEpiAge=pred_logage,type="Train")
 test_res <- data.frame(indivname=testdat$indivname,ObsSex=testdat$ObsSex,Length=testdat$Length,LogAge=ytest,LogEpiAge=pred_logage_test,type="Test")
 res_comb_all <- rbind(train_res,test_res)
-res_comb_all <- res_comb_all %>% mutate(Age=exp(LogAge),EpiAge=exp(s1))
+res_comb_all <- res_comb_all %>% mutate(Age=exp(LogAge),EpiAge=exp(s.0.2869247))
 res_comb_all$ModelName <- "Combined"
 
 train_res_f <- data.frame(indivname=trainf$indivname,ObsSex=trainf$ObsSex,Length=trainf$Length,LogAge=yf,LogEpiAge=pred_logage_f,type="Train")
 test_res_f <- data.frame(indivname=testf$indivname,ObsSex=testf$ObsSex,Length=testf$Length,LogAge=ytestf,LogEpiAge=pred_logage_test_f,type="Test")
 res_comb_all_f <- rbind(train_res_f,test_res_f)
-res_comb_all_f <- res_comb_all_f %>% mutate(Age=exp(LogAge),EpiAge=exp(s1))
+res_comb_all_f <- res_comb_all_f %>% mutate(Age=exp(LogAge),EpiAge=exp(s.0.2869247))
 res_comb_all_f$ModelName <- "Female Only"
 
 train_res_m <- data.frame(indivname=trainm$indivname,ObsSex=trainm$ObsSex,Length=trainm$Length,LogAge=ym,LogEpiAge=pred_logage_m,type="Train")
 test_res_m <- data.frame(indivname=testm$indivname,ObsSex=testm$ObsSex,Length=testm$Length,LogAge=ytestm,LogEpiAge=pred_logage_test_m,type="Test")
 res_comb_all_m <- rbind(train_res_m,test_res_m)
-res_comb_all_m <- res_comb_all_m %>% mutate(Age=exp(LogAge),EpiAge=exp(s1))
+res_comb_all_m <- res_comb_all_m %>% mutate(Age=exp(LogAge),EpiAge=exp(s.0.2869247))
 res_comb_all_m$ModelName <- "Male Only"
 
 res_merged <- rbind(res_comb_all,res_comb_all_f,res_comb_all_m)
-#jpeg(file = "Figures/AgingClock_Combined_AgeLengthCpGs_AddAge1623.jpeg", width = 800, height = 480)
+jpeg(file = "Figures/AgingClock_Combined_AgeLengthCpGs_AddAge1629.jpeg", width = 900, height = 480)
 ggplot(res_merged,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = type))+
   facet_grid(~ModelName) +
   geom_point(size = 3.5)+
@@ -215,7 +215,7 @@ ggplot(res_merged,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = type
   scale_color_manual(values = c(wes_palette("IsleofDogs1")[1],wes_palette("IsleofDogs1")[3]))+
   theme_classic(base_size = 18) + 
   theme(legend.position = "none")
-#dev.off()
+dev.off()
 
 #MAE values
 res_merged$AbsErr <- abs(res_merged$Age - res_merged$EpiAge)
@@ -256,7 +256,7 @@ plotdata %>%
 ## Plot by length, age color ellipses
 plotdata1 <- res_merged[,c(-1,-4,-8)]
 plotdata1 %>% 
-  ggplot(aes(x = Length,y = s1,color=as.factor(Age),group=as.factor(Age)))+
+  ggplot(aes(x = Length,y = s.0.2869247,color=as.factor(Age),group=as.factor(Age)))+
   facet_wrap(~ModelName,nrow=3,scales = "free_x") +
   geom_point(size = 3.5) +
   geom_mark_ellipse()+
