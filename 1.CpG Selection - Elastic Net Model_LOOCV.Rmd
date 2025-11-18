@@ -24,9 +24,12 @@ There are many sources of methylation variation among individuals in a populatio
 We've removed regions of the genome related to sex-determination, a putative inversion region, and mitochondrial and non-mapped regions to eliminate sources of bias within the genome (including CpGs that are related to sex-determination or inversion rather than age). Additionally, elastic net models do not accommodate missing data, so any CpG sites that are not represented in all sequenced individuals were removed.
 
 ```{r}
+# run with just ages 16-29, subset to Methyl 2025 samples
+CpGsMeta <- sexdata %>% left_join(allCpGs) %>% filter(Age >= 16)
+
 #remove CpGs with NAs for the model
-nas <- colSums(is.na(allCpGs))
-allCpGs1 <- allCpGs[,which(nas < 1)]
+nas <- colSums(is.na(CpGsMeta))
+allCpGs1 <- CpGsMeta[,which(nas < 1)]
 
 #remove non-mapped scaffold and mitochondrial data from data set
 allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NW",
@@ -49,6 +52,7 @@ We log age data prior to running the model, and the CpG selected is repeated 100
 ```{r}
 #log age data
 sexdata <- sexdata %>% 
+  filter(Age >= 16)
   mutate(LogAge = log(Age),LogLen = log(Length))
 ```
 
@@ -76,7 +80,7 @@ for (i in 1:100) {
     group_by(Age,ObsSex) %>% 
     slice_sample(n = 1)
   
-  #sort other individuals into training data  
+  #sort other individuals into training data
   trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
   
   #select CpG sites for each group
@@ -88,16 +92,16 @@ for (i in 1:100) {
   
   #select data and run glmnet to select sites
   y <- as.matrix(traindat$LogAge)
-  x <- as.matrix(traindat[,-1:-6])
+  x <- as.matrix(traindat[,-1:-9])
   
-  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 10)
+  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 40,grouped = F)
   coef.allCpG <- as.matrix(coef(model1,s = "lambda.min"))
   
   bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
   
   #predict testdat
   ytest <- testdat$LogAge
-  xtest <- as.matrix(testdat[,-1:-6])
+  xtest <- as.matrix(testdat[,-1:-9])
   
   #predict and correlate train data
   pred_logage <- predict(model1,newx = x,type = "response",s = model1$lambda.min)

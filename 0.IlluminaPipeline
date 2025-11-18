@@ -1,5 +1,5 @@
 ##################
-### Pipeline Description: The Rmarkdown series here assumes that we're starting with a file organized as a table between 
+### Pipeline Description: The R markdown series for epigenetic aging clocks assumes that we're starting with a file organized as a table between 
 ### individuals and CpG sites, containing percent methylation values. Sequencing data generally arrives as read data that
 ### is demultiplexed for each individual but is unfiltered and not aligned to the reference genome. This script series 
 ### was used to process whole-genome data treated with a Methyl-Seq ezymatic treatment sequenced with an Illumina 
@@ -35,20 +35,25 @@ fastqc -o ./fastqc/ -t 30 *fastq.gz
 
 #-----------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------
-
-
 ## 2.TrimAdaptors
 ## Written by: EM Weise
-## Last edited: May 14, 2024
+## Last edited: July 2nd, 2025
 #Description: Use adaptors to trim reads, set minimum read length to 40
 #-------------------------------------
-RUNPATH=/home/emweise/projects/def-ruzza/emweise/MethylWild2023_Part2
-#mkdir $RUNPATH/trimmed
 
-cd $RUNPATH
+#-------------------------------------
+# set variables and make necessary folders
+RUNPATH=/home/emweise/projects/def-ruzza/emweise/MethylWild2023_Part3
+SCR=/home/emweise/scratch/HalibutMethylWild_Age1629
 
-#pipe to create unique individual names for all files, and run a while loop to create a trimmomatic script for each file
-ls | grep "MethylWild2023" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
+mkdir $SCR/trimmed
+mkdir $RUNPATH/Scripts/Trim
+mkdir $RUNPATH/QSTAT/Trim
+
+cd $SCR
+
+# submit script for each individual
+ls | grep "MethylWild2025" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
 do
 echo '#!/bin/bash
 #SBATCH --time=02:00:00
@@ -62,21 +67,28 @@ echo '#!/bin/bash
 
 #Load modules
 module purge
-module load StdEnv/2020
+module load StdEnv/2023
+#module load orad/2.6.1
 module load trimmomatic/0.39
 
-RUNPATH=/home/emweise/projects/def-ruzza/emweise/MethylWild2023_Part2
-cd '$RUNPATH'/trimmed
+# if data is in .orad format, need to switch to fastq.gz
+# make sure to put oradata folder into the folder with the data or it won't work
+#cd '$SCR'
 
-java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE -threads 30 '$RUNPATH'/'$line'_R1_001.fastq.gz '$RUNPATH'/'$line'_R2_001.fastq.gz  '$line'_R1_paired.fastq.gz '$line'_R1_unpaired.fastq.gz '$line'_R2_paired.fastq.gz '$line'_R2_unpaired.fastq.gz ILLUMINACLIP:adapters.fa:2:30:10:2:true  MINLEN:40
+#orad --gz '$line'_R1_001.fastq.ora --ora-reference ./oradata --threads 8
+#orad --gz '$line'_R2_001.fastq.ora --ora-reference ./oradata --threads 8
 
-#write the script into the 'Trim' folder
+cd '$SCR'/trimmed
+
+# run trimmomatic
+java -jar $EBROOTTRIMMOMATIC/trimmomatic-0.39.jar PE -threads 30 '$SCR'/'$line'_R1_001.fastq.gz '$SCR'/'$line'_R2_001.fastq.gz  '$line'_R1_paired.fastq.gz '$line'_R1_unpaired.fastq.gz '$line'_R2_paired.fas>
+
+# print script into a file
 scontrol show job ${SLURM_JOB_ID}'| cat > $RUNPATH/Scripts/Trim/Trim.$line.sh
 
-#run the script
+# run script that was just created
 sbatch $RUNPATH/Scripts/Trim/Trim.$line.sh
 
-#end loop
 done
 
 #-----------------------------------------------------------------------------------------------------------------
@@ -84,21 +96,23 @@ done
 
 ## 3.AlignReads
 ## Written by: EM Weise
-## Last edited: May 14, 2024
+## Last edited: July 2nd, 2025
 ## Description: Use bismark to align ME-seq reads to the reference genome
 
 #-------------------------------------
+# set variables and make necessary folders
+RUNPATH=/home/emweise/projects/def-ruzza/emweise/MethylWild2023_Part3
+GENOME=/home/emweise/projects/def-ruzza/emweise/referencegenome
+SCR=/home/emweise/scratch/HalibutMethylWild_Age1629
 
-RUNPATH=/home/emweise/projects/rrg-ruzza/emweise/MethylWild2023_Part2
-GENOME=/home/emweise/projects/rrg-ruzza/emweise/referencegenome
-
-mkdir $RUNPATH/aligned
+mkdir $SCR/aligned
 mkdir $RUNPATH/Scripts/Align
 mkdir $RUNPATH/QSTAT/Align
 
-cd $RUNPATH
+cd $SCR
 
-ls | grep "MethylWild2023" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
+# submit script for each individual
+ls | grep "MethylWild2025" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
 do
 echo '#!/bin/bash
 #SBATCH --time=24:00:00
@@ -114,14 +128,10 @@ echo '#!/bin/bash
 module load StdEnv/2020
 module load bismark/0.22.3 bowtie2/2.4.1 samtools/1.16.1
 
-cd '$RUNPATH'/aligned
-
-#Load 3 modules
-module load StdEnv/2020
-module load bismark/0.22.3 bowtie2/2.4.1 samtools/1.16.1
+cd '$SCR'/aligned
 
 #align with reference genome (./ if working directory is 3EMseq_maps)
-bismark --multicore 2 --bowtie2 '$GENOME' -1 '$RUNPATH'/trimmed/'$line'_R1_paired.fastq.gz -2 '$RUNPATH'/trimmed/'$line'_R2_paired.fastq.gz
+bismark --multicore 2 --bowtie2 '$GENOME' -1 '$SCR'/trimmed/'$line'_R1_paired.fastq.gz -2 '$SCR'/trimmed/'$line'_R2_paired.fastq.gz
 
 scontrol show job ${SLURM_JOB_ID}'| cat > $RUNPATH/Scripts/Align/Align_$line.sh
 
@@ -129,23 +139,27 @@ sbatch $RUNPATH/Scripts/Align/Align_$line.sh
 
 done
 
+
 #-----------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------
 
 ## 4.MethylProfile
 ## Written by: EM Weise
-## Last edited: May 14, 2024
+## Last edited: July 2nd, 2025
 #Description: Use bismark to align ME-seq reads to the reference genome
 
 #-------------------------------------
 
-RUNPATH=/home/emweise/projects/rrg-ruzza/emweise/MethylWild2023_Part2
+#-------------------------------------
 
-cd $RUNPATH
+RUNPATH=/home/emweise/projects/def-ruzza/emweise/MethylWild2023_Part3
+SCR=/home/emweise/scratch/HalibutMethylWild_Age1629
+
+cd $SCR
 mkdir $RUNPATH/QSTAT/Profile
 mkdir $RUNPATH/Scripts/Profile
 
-ls | grep "MethylWild2023" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
+ls | grep "MethylWild2025" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
 do
 echo '#!/bin/bash
 #SBATCH --time=24:00:00
@@ -160,22 +174,20 @@ echo '#!/bin/bash
 module load StdEnv/2020
 module load gcc/9.3.0 perl/5.30.2 bismark/0.22.3 bowtie2/2.4.1 samtools/1.16.1
 
-cd '$RUNPATH'/aligned
+cd '$SCR'/aligned
 
 #1 - deduplication
 #-p defines it as paired-end reads
 
-deduplicate_bismark -p --bam '$RUNPATH'/aligned/'$line'_R1_paired_bismark_bt2_pe.bam
+deduplicate_bismark -p --bam '$SCR'/aligned/'$line'_R1_paired_bismark_bt2_pe.bam
 
 #2 - Methylation profiles 'extraction' on the deduplicated .bam files which were just created
 
-bismark_methylation_extractor -p --gzip --bedGraph '$RUNPATH'/aligned/'$line'_R1_paired_bismark_bt2_pe.deduplicated.bam
+bismark_methylation_extractor -p --gzip --bedGraph '$SCR'/aligned/'$line'_R1_paired_bismark_bt2_pe.deduplicated.bam
 
 #3 - This command outputs three methylation output files (CpG, CHG, CHH all .gz), a bedGraph, and Bismark coverage file.
-
 bismark2report
 bismark2summary
-
 
 scontrol show job ${SLURM_JOB_ID}'| cat > $RUNPATH/Scripts/Profile/Profile_$line.sh
 
@@ -188,22 +200,25 @@ done
 
 ## 5.SortIndex
 ## Written by: EM Weise
-## Last edited: May 14, 2024
+## Last edited: July 2nd, 2025
 ## Description: use samtools to sort and index the aligned and profiled reads
 #-------------------------------------
 
-RUNPATH=/home/emweise/projects/rrg-ruzza/emweise/MethylWild2023_Part2
-GENOME=/home/emweise/projects/rrg-ruzza/emweise/referencegenome
+RUNPATH=/home/emweise/projects/def-ruzza/emweise/MethylWild2023_Part3
+GENOME=/home/emweise/projects/def-ruzza/emweise/referencegenome
+SCR=/home/emweise/scratch/HalibutMethylWild_Age1629
 
 cd $RUNPATH
 mkdir $RUNPATH/QSTAT/SortIndex
 mkdir $RUNPATH/Scripts/SortIndex
 
-ls | grep "MethylWild2023" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
+cd $SCR
+
+ls | grep "MethylWild2025" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
 do
 echo '#!/bin/bash
 #SBATCH --time=8:00:00
-#SBATCH --mail-type=FAIL
+#SBATCH --mail-type=ALL
 #SBATCH --mail-user=emweise@dal.ca
 #SBATCH --nodes=1
 #SBATCH --mem=12G
@@ -211,13 +226,16 @@ echo '#!/bin/bash
 #SBATCH -J SortIndex_'$line'
 #SBATCH -o '$RUNPATH'/QSTAT/SortIndex/SortIndex.'$line'.o
 
-module load StdEnv/2020
-module load samtools/1.16.1
+module load StdEnv/2023  gcc/12.3
+module load samtools/1.20
 
-cd $RUNPATH/aligned
+cd $SCR/aligned
 
-samtools sort '$RUNPATH'/aligned/'$line'_R1_paired_bismark_bt2_pe.deduplicated.bam -o '$RUNPATH'/aligned/'$line'_R1_paired_bismark_bt2_pe_sorted.bam
-samtools index '$RUNPATH'/aligned/'$line'_R1_paired_bismark_bt2_pe_sorted.bam
+# sort reads with samtools
+samtools sort '$SCR'/aligned/'$line'_R1_paired_bismark_bt2_pe.deduplicated.bam -o '$SCR'/aligned/'$line'_R1_paired_bismark_bt2_pe_sorted.bam
+
+# add samtools index
+samtools index '$SCR'/aligned/'$line'_R1_paired_bismark_bt2_pe_sorted.bam
 
 scontrol show job ${SLURM_JOB_ID}'| cat > $RUNPATH/Scripts/SortIndex/SortIndex_$line.sh
 
@@ -225,5 +243,34 @@ sbatch $RUNPATH/Scripts/SortIndex/SortIndex_$line.sh
 
 done
 
+
 #-----------------------------------------------------------------------------------------------------------------
 #-----------------------------------------------------------------------------------------------------------------
+
+## 5.MakeCpGFiles.R
+## Written by: EM Weise
+## Last edited: July 2nd, 2025
+## Description: use methylkit to process sorted reads and convert them to methylkit format
+#-------------------------------------
+
+# set working directory and load libraries
+setwd("/home/emweise/scratch/HalibutMethylWild_Age1629/sortedbams")
+
+library(methylKit)
+
+# read in list of sorted bam file names (script 5 output)
+tmp <- read.table("sortedfilelist.txt",header=F,sep = "\t")
+
+# loop to run bismark alignment for each file in the sortedfilelist
+#!# reference genome needs to be in the same folder that methylkit is working in or it will fail out
+for(i in 1:length(tmp$V1)){
+        name <- tmp$V1[i]
+        idname <- as.character(strsplit(name,"_S")[[1]][1])
+        processBismarkAln(location = tmp$V1[i],sample.id = idname,save.folder = "methylkit", assembly = "GCF_009819705.1_fHipHip1.pri_genomic.fa",mincov = 20, minqual = 30, read.context = "CpG")
+}
+
+
+#-----------------------------------------------------------------------------------------------------------------
+#-----------------------------------------------------------------------------------------------------------------
+
+

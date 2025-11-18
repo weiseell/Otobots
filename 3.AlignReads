@@ -1,0 +1,45 @@
+
+## 3.AlignReads
+## Written by: EM Weise
+## Last edited: July 2nd, 2025
+## Description: Use bismark to align ME-seq reads to the reference genome
+
+#-------------------------------------
+# set variables and make necessary folders
+RUNPATH=/home/emweise/projects/def-ruzza/emweise/MethylWild2023_Part3
+GENOME=/home/emweise/projects/def-ruzza/emweise/referencegenome
+SCR=/home/emweise/scratch/HalibutMethylWild_Age1629
+
+mkdir $SCR/aligned
+mkdir $RUNPATH/Scripts/Align
+mkdir $RUNPATH/QSTAT/Align
+
+cd $SCR
+
+# submit script for each individual
+ls | grep "MethylWild2025" | sed 's/_R1.*//' | sed 's/_R2.*//' | sort | uniq | while read -r line
+do
+echo '#!/bin/bash
+#SBATCH --time=24:00:00
+#SBATCH --mail-type=FAIL
+#SBATCH --mail-user=emweise@dal.ca
+#SBATCH --nodes=1
+#SBATCH --mem=12G
+#SBATCH --cpus-per-task=32
+#SBATCH -J Align_'$line'
+#SBATCH -o '$RUNPATH'/QSTAT/Align/Align.'$line'.o
+
+#Load modules
+module load StdEnv/2020
+module load bismark/0.22.3 bowtie2/2.4.1 samtools/1.16.1
+
+cd '$SCR'/aligned
+
+#align with reference genome (./ if working directory is 3EMseq_maps)
+bismark --multicore 2 --bowtie2 '$GENOME' -1 '$SCR'/trimmed/'$line'_R1_paired.fastq.gz -2 '$SCR'/trimmed/'$line'_R2_paired.fastq.gz
+
+scontrol show job ${SLURM_JOB_ID}'| cat > $RUNPATH/Scripts/Align/Align_$line.sh
+
+sbatch $RUNPATH/Scripts/Align/Align_$line.sh
+
+done

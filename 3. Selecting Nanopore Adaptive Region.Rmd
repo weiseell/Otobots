@@ -21,6 +21,36 @@ ChromSwap <- read.csv("Input/ChromosomeSwap.csv")
 load("Input/allCpGs_nosingletons.rda")
 CpGlist_best_comb <- read.csv(file = "Output/CpGList_LengthAge.csv")
 
+# load in SNP panel sites
+PanSites <- readLines("E:/ClonedRepositories/ForTheHalibut/Input/Hippoglossus_iSelect24_20220124/Hippoglussus_SNPdataOutputVCF_040722.vcf")
+#convert vcf into a useable format
+PanSites <- PanSites[-1:-29]
+PanSites <-strsplit(PanSites,split = "\t")
+PanSites <- data.frame(matrix(unlist(PanSites),nrow = length(PanSites),byrow = T))
+colnames(PanSites) <- PanSites[1,]
+PanSites <- PanSites[-1,]
+
+#make SNP panel plot####
+PanSites <- PanSites[,1:2]
+colnames(PanSites) <- c("CHR","MapInfo")
+PanSites$CHR <- as.integer(PanSites$CHR)
+PanSites$MapInfo <- as.integer(PanSites$MapInfo)
+
+#swapping PanSites names to the right ones
+nums <- unique(PanSites$CHR)
+i <- 1
+PanSites$CHR2 <- PanSites$CHR
+for (i in 1:length(nums)) {
+  cn <- ChromSwap[which(ChromSwap$Kess == i),]
+  PanSites$CHR[which(PanSites$CHR2 == cn$Kess)] <- cn$NCseq
+}
+
+PanSites <- PanSites %>% arrange(CHR,MapInfo) %>% rename(CHROM=CHR) %>% dplyr::select(CHROM,MapInfo)
+
+## grab sites at sex-determining locus and inversion
+InvSexDet <- PanSites %>% 
+  filter(CHROM == "NC_047158.1" | CHROM == "NC_047162.1")
+
 ##Dataset cleaning ####
 #remove CpGs with NAs for the model
 nas <- colSums(is.na(allCpGs1))
@@ -37,7 +67,7 @@ allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_009709.1",
 
 ### generating files for all CpGs and selected CpGs
 ```{r}
-# making CpG file
+# making CpG file with all CpG regions
 CpGnames <- colnames(allCpGs1)
 tmp <- data.frame(str_split_fixed(string = CpGnames,pattern = "\\.",n = 3))
 CpGlocs <- tmp %>% 
@@ -45,15 +75,16 @@ CpGlocs <- tmp %>%
   rename(MapInfo=X3) %>% 
   dplyr::select(CHROM,MapInfo,Type)
 
-#alternative file with only best CpGs from model
-CpGlocs <- df %>% 
-  dplyr::select(CHROM,POS,ModelType) %>% 
-  rename(MapInfo = POS,Type = ModelType)
+# only aging sites
+CpGbestnames <- CpGlist_best_comb %>% dplyr::select(CHROM,POS) %>% rename(MapInfo=POS)
+
+#alternative file with only best CpGs from model and Inv/Sex sites
+CpGlocs <- rbind(CpGbestnames,PanSites)
 ```
 
-### Identification of CpG rich regions in the genome (within 1000 bases, for our second run we adjusted this to 10,000)
+### Identification of CpG rich regions in the genome (within 400 bases, for our second run we adjusted this to 10,000)
 ```{r}
-## ID CpG-rich regions (less than 1000b apart) ####
+## ID CpG-rich regions (less than 400b apart) ####
 CpGRegion <- data.frame(matrix(nrow = 0, ncol = 3))
 colnames(CpGRegion) <- c("CHROM","StartPOS","EndPOS")
 
@@ -64,7 +95,7 @@ for (k in 1:length(unique(CpGlocs$CHROM))) {
   CpG_Chr <- subset(CpGlocs,CpGlocs$CHROM == currentCHR)
   
   #set maximum distance between CpG sites for inclusion in the region
-  maxdist <- 1000
+  maxdist <- 200
   #need at least 2 CpGs in the chromosome for this to work (different loop for chromosomes with one site)
   if(length(CpG_Chr$CHROM) >= 2){
     # making sure position on chromosome (MapInfo) is an integer so the if statements work
@@ -92,7 +123,7 @@ for (k in 1:length(unique(CpGlocs$CHROM))) {
       #if previous set set a new maximum, this CpG is now a new miniumum
       if(CpG_Chr[i-1,2] - CpG_Chr[i-2,2] >= maxdist){
         mins <- c(mins,CpG_Chr[i,2])
-        #tmpmax <- CpG_Chr[i,2]
+        tmpmax <- CpG_Chr[i,2]
       }
       
       #check if previous CpG distance is farther than max dist from this CpG
@@ -152,7 +183,7 @@ for (k in 1:length(unique(CpGlocs$CHROM))) {
 
 ```{r}
 ## Adjusting the regions so they cover at least 10000 bp
-maxdist <- 1000
+maxdist <- 400
 # loop by chromosome to adjust all regions to make sure they span at least the max dist size
 
 for (i in 1:length(CpGRegion$CHROM)) {
@@ -194,6 +225,10 @@ for (i in 1:length(CpGRegion$CHROM)) {
     }
   }
 }
+
+# write file 
+write.table(CpGlocs,file = "Illumina5Base_LargeOption_sitelist.txt",append = F,quote = F,row.names = F)
+write.table(CpGRegion,file = "Illumina5Base_LargeOption_400bpbuild.txt",append = F,quote = F,row.names = F)
 
 #!# check if any of your adjusted regions now overlap!! Especially if your maxdist is very large
 #!# more likely to happen the bigger the buffer region is

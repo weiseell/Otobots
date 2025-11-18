@@ -11,60 +11,158 @@ Once Nanopore data has been processed into an individual vs. percent methylation
 ## Testing Nanopore percent methylation against existing clock
 
 ### loading in data and libraries
-```{r}
+```{r,warning=F}
 ### Testing Nanopore results with existing model
 #load packages
 library(tidyverse)
 library(glmnet)
 library(MASS)
 library(paletteer)
+library(adegenet)
+library(ape)
 
 #load data
 load("Output/AgeLengthCpG_modelrun_021524.RData")
-barcode1 <- read.table("Input/Barcode3_21-SS-HIP-5533_v5.bedMethyl",header = F,stringsAsFactors = F)
-barcode1 <- subset(barcode1,barcode1$V4 == "h")
-barcode2 <- read.table("Input/Barcode4_20-SS-HS-HYP157_v5.bedMethyl",header = F,stringsAsFactors = F)
-barcode2 <- subset(barcode2,barcode2$V4 == "h")
+agesexmeta <- read.csv("Input/SexAgeMetaData_NanoporeRound2.csv")
+#nanopore from run 1
+barcode1 <- read.table("Nanopore_depth/Barcode3_21-SS-HIP-5533_v5.bedMethyl",header = F,stringsAsFactors = F)
+barcode1 <- subset(barcode1,barcode1$V4 == "m")
+barcode1$Barcode <- "Barcode1"
+barcode2 <- read.table("Nanopore_depth/Barcode4_20-SS-HS-HYP157_v5.bedMethyl",header = F,stringsAsFactors = F)
+barcode2 <- subset(barcode2,barcode2$V4 == "m")
+barcode2$Barcode <- "Barcode2"
+# nanopore sites from run 2
+barcode3 <- read.table("Nanopore_CpG/barcode03_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode3 <- subset(barcode3,barcode3$V4 == "m")
+barcode3$Barcode <- "Barcode3"
+barcode4 <- read.table("Nanopore_CpG/barcode04_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode4 <- subset(barcode4,barcode4$V4 == "m")
+barcode4$Barcode <- "Barcode4"
+barcode5 <- read.table("Nanopore_CpG/barcode05_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode5 <- subset(barcode5,barcode5$V4 == "m")
+barcode5$Barcode <- "Barcode5"
+barcode6 <- read.table("Nanopore_CpG/barcode06_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode6 <- subset(barcode6,barcode6$V4 == "m")
+barcode6$Barcode <- "Barcode6"
+barcode7 <- read.table("Nanopore_CpG/barcode07_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode7 <- subset(barcode7,barcode7$V4 == "m")
+barcode7$Barcode <- "Barcode7"
+barcode8 <- read.table("Nanopore_CpG/barcode08_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode8 <- subset(barcode8,barcode8$V4 == "m")
+barcode8$Barcode <- "Barcode8"
+barcode9 <- read.table("Nanopore_CpG/barcode09_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode9 <- subset(barcode9,barcode9$V4 == "m")
+barcode9$Barcode <- "Barcode9"
+barcode10 <- read.table("Nanopore_CpG/barcode10_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode10 <- subset(barcode10,barcode10$V4 == "m")
+barcode10$Barcode <- "Barcode10"
+barcode11 <- read.table("Nanopore_CpG/barcode11_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode11 <- subset(barcode11,barcode11$V4 == "m")
+barcode11$Barcode <- "Barcode11"
+barcode12 <- read.table("Nanopore_CpG/barcode12_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode12 <- subset(barcode12,barcode12$V4 == "m")
+barcode12$Barcode <- "Barcode12"
+barcode13 <- read.table("Nanopore_CpG/barcode13_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode13 <- subset(barcode13,barcode13$V4 == "m")
+barcode13$Barcode <- "Barcode13"
+barcode14 <- read.table("Nanopore_CpG/barcode14_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode14 <- subset(barcode14,barcode14$V4 == "m")
+barcode14$Barcode <- "Barcode14"
+barcode15 <- read.table("Nanopore_CpG/barcode15_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode15 <- subset(barcode15,barcode15$V4 == "m")
+barcode15$Barcode <- "Barcode15"
+barcode16 <- read.table("Nanopore_CpG/barcode16_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode16 <- subset(barcode16,barcode16$V4 == "m")
+barcode16$Barcode <- "Barcode16"
+barcode17 <- read.table("Nanopore_CpG/barcode17_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode17 <- subset(barcode17,barcode17$V4 == "m")
+barcode17$Barcode <- "Barcode17"
+barcode18 <- read.table("Nanopore_CpG/barcode18_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode18 <- subset(barcode18,barcode18$V4 == "m")
+barcode18$Barcode <- "Barcode18"
+barcode19 <- read.table("Nanopore_CpG/barcode19_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode19 <- subset(barcode19,barcode19$V4 == "m")
+barcode19$Barcode <- "Barcode19"
+barcode20 <- read.table("Nanopore_CpG/barcode20_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode20 <- subset(barcode20,barcode20$V4 == "m")
+barcode20$Barcode <- "Barcode20"
+barcode21 <- read.table("Nanopore_CpG/barcode21_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode21 <- subset(barcode21,barcode21$V4 == "m")
+barcode21$Barcode <- "Barcode21"
+barcode22 <- read.table("Nanopore_CpG/barcode22_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode22 <- subset(barcode22,barcode22$V4 == "m")
+barcode22$Barcode <- "Barcode22"
+barcode23 <- read.table("Nanopore_CpG/barcode23_merged.bedMethyl",header = F,stringsAsFactors = F)
+barcode23 <- subset(barcode23,barcode23$V4 == "m")
+barcode23$Barcode <- "Barcode23"
+
+allbarcodes <- rbind(barcode1,barcode2,barcode3,barcode4,barcode5,barcode6,barcode7,barcode8,
+                     barcode9,barcode10,barcode11,barcode12,barcode13,barcode14,barcode15,
+                     barcode16,barcode17,barcode18,barcode19,barcode20,barcode21,barcode22,barcode23)
+
 #selecting just percent mod and CpG position
-pm1 <- barcode1[,c(1,3,11)]
-pm2 <- barcode2[,c(1,3,11)]
-colnames(pm1) <- c("CHROM","END","PERCMOD")
-colnames(pm2) <- c("CHROM","END","PERCMOD")
+pmall <- allbarcodes[,c(1,3,10,11,19)]
+
+colnames(pmall) <- c("CHROM","END","DEPTH","PERCMOD","Barcode")
+pmmeta <- left_join(agesexmeta,pmall,by = "Barcode")
+
 ```
 
 ### Reformatting to match the Illumina data
-```{r}
+```{r,warning=F}
 #reformatting to match Illumina individual data
-pm1 <- pm1 %>% 
+pmmeta1 <- pmmeta %>% 
   mutate(CpG = paste(CHROM,END,sep = ".")) %>% 
-  dplyr::select(CpG,PERCMOD) %>% 
-  spread(key = CpG,value = PERCMOD)
+  filter(DEPTH > 20) %>% 
+  dplyr::select(Indiv,Sex,Age,Barcode,CpG,PERCMOD) %>% 
+  spread(key = CpG, value = PERCMOD) %>% 
+  arrange(Barcode) 
 
-pm2 <- pm2 %>% 
+pmmeta_long <- pmmeta %>% 
   mutate(CpG = paste(CHROM,END,sep = ".")) %>% 
-  dplyr::select(CpG,PERCMOD) %>% 
-  spread(key = CpG,value = PERCMOD)
+  filter(DEPTH > 20) %>% 
+  dplyr::select(Indiv,Sex,Age,Barcode,CpG,PERCMOD)
 
-best1 <- pm1[1,which(colnames(pm1) %in% CpGlist_best_comb$CpGlist_best)]
-best2 <- pm2[1,which(colnames(pm2) %in% CpGlist_best_comb$CpGlist_best)]
+pmmeta_best <- pmmeta_long[which(pmmeta_long$CpG %in% CpGlist_best_comb$CpGlist_best),]
+
+barcodecounts <- pmmeta_long %>% 
+  group_by(Barcode) %>% 
+  summarise(counts=n())
+
+CpGcounts <- pmmeta_long %>% 
+  group_by(CpG) %>% 
+  summarise(counts=n())
+
+## filter low individuals and low SNPs out
+pmmeta1 <- pmmeta_long %>% 
+  filter(Barcode != "Barcode10" & Barcode != "Barcode12") %>% 
+  spread(key = CpG, value = PERCMOD) %>% 
+  arrange(Barcode)
+
+bestall <- pmmeta1[,which(colnames(pmmeta1) %in% CpGlist_best_comb$CpGlist_best),]
+# count missing data within these sites and remove
+bestall1 <- bestall[,colSums(is.na(bestall)) < 10]
+
+meta <- pmmeta1[,1:4]
+
 ```
 
 ### Running elastic net model with shared sites and predicting nanopore ages
-```{r}
+```{r,warning=F}
 #select data and run glmnet to select sites
 y <- traindat$LogAge
 
 #running a glmnet with all selected sites
-bestCpG_train <- as.matrix(traindat[,which(colnames(traindat) %in% names(best1))])
+bestCpG_train <- as.matrix(traindat[,which(colnames(traindat) %in% names(bestall1))])
 model1 <- cv.glmnet(bestCpG_train,y,family = "gaussian",alpha = 0.05,nfolds = 10)
 coef.allCpG <- as.matrix(coef(model1,s = "lambda.min"))
 
 bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
 
 #predict testdat
-ytest <- c(testdat$LogAge,log(4),log(15))
-xtest <- as.matrix(testdat[,which(colnames(testdat) %in% names(best1))])
-xtest <- rbind(xtest,as.numeric(best1),as.numeric(best2))
+ytest <- c(testdat$LogAge,log(meta$Age))
+xtest <- as.matrix(testdat[,which(colnames(testdat) %in% names(bestall1))])
+xtest <- as.matrix(rbind(xtest,bestall1))
 
 #predict and correlate train data
 pred_logage <- predict(model1,newx = bestCpG_train,type = "response",s = model1$lambda.min)
@@ -80,111 +178,329 @@ test_cor <- cor.test(ytest,pred_logage_test)
 plot(ytest,pred_logage_test)
 ```
 
-*We found that the Nanopore percent methylation values were correlated with the Illumina data for both our individuals, but the percent methylation values themselves are different enough that they can't be combined into a single clock. Other groups have had similar difficulties combining methylation data across platforms. However, it has been shown that the results and CpG locations can be corroborated across platforms, just not the percent methylation values themselves.*
+
+```{r,warning=F}
+## plotting model with nanopore superimposed
+#clock correlation plot
+train_res <- data.frame(indivname=traindat$indivname,
+                        ObsSex=traindat$ObsSex,
+                        LogAge=y,
+                        LogEpiAge=pred_logage,
+                        type="Train")
+colnames(train_res) <- c("indivname","ObsSex","LogAge","LogEpiAge","type")
+
+test_illumina <- data.frame(indivname=testdat$indivname,
+                            ObsSex=testdat$ObsSex,
+                            LogAge=ytest[1:length(testdat$indivname)],
+                            LogEpiAge=pred_logage_test[1:length(testdat$indivname)],
+                            type="Test_Illum")
+test_nano <- data.frame(indivname=meta$Indiv,
+                        ObsSex=meta$Sex,
+                        LogAge=ytest[(length(testdat$indivname)+1):length(ytest)],
+                        LogEpiAge=pred_logage_test[(length(testdat$indivname)+1):length(ytest)],
+                        type="Test_Nano")
+res_comb_all <- rbind(train_res,test_illumina,test_nano)
+res_comb_all <- res_comb_all %>% mutate(Age=exp(LogAge),EpiAge=exp(LogEpiAge))
+
+ggplot(res_comb_all,aes(x = Age,y = EpiAge,color=type,shape = as.character(ObsSex)))+
+  geom_point(size = 3.5)+
+  geom_jitter(height = 0,width = 0.1)+
+  ylim(0, 20) + xlim(0, 20) +
+  geom_abline(slope = 1,intercept = 0) +
+  xlab("Otolith Age (years)") +
+  ylab("Molecular clock Age (years)") +
+  ggtitle("Correlation Between Otolith and Molecular Clock Age") +
+  #scale_color_manual(values = c(wes_palette("IsleofDogs1")[1],wes_palette("IsleofDogs1")[3]))+
+  theme_classic(base_size = 18) + 
+  theme(legend.position = "none")
+```
+
+
+Next, we plotted the clock-selected CpG sites for percent methylation values to look for shared relationships even if the percent methylation values are not compatible enough to be included in the same clock
+```{r,warning=F}
+# data frames with only duplicated individuals at shared CpG sites
+agesexmeta <- agesexmeta %>% filter(Barcode != "Barcode10" & Barcode != "Barcode12")
+illumina <- allCpGs1[which(allCpGs1$indivname %in% agesexmeta$indivname),]
+nano_CpGs <- pmmeta1[,which(colnames(pmmeta1) %in% colnames(illumina))]
+nano_CpGs$indivname <- pmmeta1$Indiv
+nano_CpGs$type <- "Nanopore"
+illum_CpGs <- illumina[,which(colnames(illumina) %in% colnames(pmmeta1))]
+illum_CpGs$type <- "Illumina"
+illum_CpGs$indivname <- illumina$indivname
+```
+
+First we ran a basic PCA on individuals sequenced with both methods to establish if there is a potential sequencing effect on percent methylation rates. The primary axis shows two distinct groups separated by type of sequencing.
+
+```{r,warning=F}
+## run PCA to look for sequencing type effect
+##make phenotypic sex genlight
+#make SNP, indiv, and pop sections of input
+all_CpGs <- rbind(nano_CpGs,illum_CpGs)
+
+#look for missing data
+all_CpGs <- all_CpGs[,which(colSums(is.na(all_CpGs)) <= 5)]
+
+# make genlight
+CpGsSNPs <- all_CpGs %>% dplyr::select(-indivname,-type)
+CpGsindiv <- all_CpGs$indivname
+CpGspop <- all_CpGs$type
+CpGsSNPnames <- colnames(CpGsSNPs)
+#make genlight (takes ~1 min)
+genCpGs <- new("genlight",
+                   CpGsSNPs,
+                   ploidy = 2,
+                   ind.names = CpGsindiv,
+                   loc.names = CpGsSNPnames,
+                   pop = CpGspop)
+
+pca1 <- glPca(genCpGs,nf=24)
+scatter(pca1, posi="bottomright")
+
+tre <- nj(dist(as.matrix(genCpGs)))
+tre
+plot(tre, typ="fan", cex=0.7)
+
+colorplot(pca1$scores,pca1$scores, transp=TRUE, cex=4)
+
+```
+
+```{r,warning=F}
+## compare the CpG age-specific regions between duplicates
+CpGlist_best_comb
+all_CpGs <- rbind(nano_CpGs,illum_CpGs)
+
+best_illum <- illumina[,which(colnames(illumina) %in% CpGlist_best_comb$CpGlist_best)]
+best_nano <- nano_CpGs[,which(colnames(nano_CpGs) %in% CpGlist_best_comb$CpGlist_best)]
+best_nano$Indiv <- nano_CpGs$indivname
+best_nano$type <- "Nanopore"
+best_nano <- best_nano %>% left_join(agesexmeta) %>% dplyr::select(-Indiv,-Barcode)
+
+best_illum <- best_illum[,which(colnames(best_illum) %in% colnames(nano_CpGs))]
+best_illum$indivname <- illumina$indivname
+best_illum$type <- "Illumina"
+best_illum <- best_illum %>% left_join(agesexmeta) %>% dplyr::select(-Indiv,-Barcode)
+
+bestCpG <- rbind(best_nano,best_illum)
+
+bestCpG %>% 
+  gather(key = "CpGsite",value = "PercMethyl",-indivname,-type,-Sex,-Age) %>% 
+  ggplot(aes(x = Age,y = PercMethyl,color=type))+
+    geom_point()+
+    facet_wrap(~CpGsite)
+```
+
+We then tested the creation of a just-Nanopore calibrated clock, which still has a relatively low sample size, but just enough for basic testing. We wanted to determine if the same CpGs were selected for age prediction across methods, or if different sites were selected, if they were within the same CpG region of the genome. 
+
+This is particularly important because as much as the Nanopore sequencing was successful across the 21 individuals, the Dorodo processing software excludes many sites internally, leading to exclusion of many of our desired sites from the data set despite having sufficient depth for CpG calls based on the samtools calculation. 
+
+```{r,warning=F}
+# counting missing data
+hist(colSums(is.na(pmmeta1)),breaks = 25)
+
+nomiss <- pmmeta1[,which(colSums(is.na(pmmeta1)) == 0)]
+
+# split one individual per age group out for testing
+test <- nomiss %>% 
+  group_by(Age) %>% 
+  sample_n(1)
+
+train <- nomiss %>% 
+  filter(!(Indiv %in% test$Indiv))
+
+xtrain <- as.matrix(train[,-1:-4])
+ytrain <- log(train$Age)
+
+model2 <- cv.glmnet(xtrain,ytrain,family = "gaussian",alpha = 0.5,nfolds = 5)
+coef.allCpG <- as.matrix(coef(model2,s = "lambda.min"))
+
+bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
+
+
+#predict testdat
+ytest <- log(test$Age)
+xtest <- as.matrix(test[,-1:-4])
+
+#predict and correlate train data
+pred_logage <- predict(model2,newx = xtrain,type = "response",s = model1$lambda.min)
+train_cor <- cor.test(ytrain,pred_logage)
+#plot(y,pred_logage,coytest#plot(y,pred_logage,col = traindat$ObsSex)
+plot(ytrain,pred_logage)
+ plot(model2, xvar = "dev", label = TRUE)
+
+#predict and correlate test data
+pred_logage_test <- predict(model2,newx = xtest,type = "response",s = model1$lambda.min)
+test_cor <- cor.test(ytest,pred_logage_test)
+
+plot(ytest,pred_logage_test)
+
+#clock correlation plot
+train_res <- data.frame(indivname=train$Indiv,
+                        ObsSex=train$Sex,
+                        LogAge=ytrain,
+                        LogEpiAge=pred_logage,  
+                        type="Train")
+colnames(train_res) <- c("indivname","ObsSex","LogAge","LogEpiAge","type")
+
+test_res <- data.frame(indivname=test$Indiv,
+                        ObsSex=test$Sex,
+                        LogAge=ytest,
+                        LogEpiAge=pred_logage_test,
+                        type="Test")
+colnames(test_res) <- c("indivname","ObsSex","LogAge","LogEpiAge","type")
+res_comb_all <- rbind(train_res,test_res)
+res_comb_all <- res_comb_all %>% mutate(Age=exp(LogAge),EpiAge=exp(LogEpiAge))
+
+ggplot(res_comb_all,aes(x = Age,y = EpiAge,color=type,shape = as.character(ObsSex)))+
+  geom_point(size = 3.5)+
+  geom_jitter(height = 0,width = 0.1)+
+  ylim(0, 20) + xlim(0, 20) +
+  geom_abline(slope = 1,intercept = 0) +
+  xlab("Otolith Age (years)") +
+  ylab("Molecular clock Age (years)") +
+  ggtitle("Correlation Between Otolith and Molecular Clock Age") +
+  #scale_color_manual(values = c(wes_palette("IsleofDogs1")[1],wes_palette("IsleofDogs1")[3]))+
+  theme_classic(base_size = 18) + 
+  theme(legend.position = "none")
+```
+
 
 ## Testing per CpG depth for Nanopore Runs
 ### Reading in depth files and adaptive files
-```{r}
-depth1 <- read.table("Input/Barcode1_21-SS-HIP-5533.txt")
-colnames(depth1) <- c("CHROM","POS","DEPTH")
-
-depth2 <- read.table("Input/Barcode2_20-SS-HS-HYP157.txt")
-colnames(depth2) <- c("CHROM","POS","DEPTH")
-
-depth3 <- read.table("Input/Barcode3_21-SS-HIP-5533_v5_depth.txt")
+```{r,warning=F}
+depth3 <- read.table("Nanopore_depth/calls_2025-08-18_T14-08-26_barcode03_depth.txt")
 colnames(depth3) <- c("CHROM","POS","DEPTH")
+depth3$Barcode <- "Barcode3"
 
-depth4 <- read.table("Input/Barcode4_20-SS-HS-HYP157_v5_depth.txt")
+depth4 <- read.table("Nanopore_depth/calls_2025-08-18_T14-20-31_barcode04_depth.txt")
 colnames(depth4) <- c("CHROM","POS","DEPTH")
+depth4$Barcode <- "Barcode4"
 
-adapt1 <- read.table("Output/NanoporeRegionSelection_040424.txt")
-colnames(adapt1) <- c("CHROM", "START", "END")
+depth5 <- read.table("Nanopore_depth/calls_2025-08-18_T14-23-37_barcode05_depth.txt")
+colnames(depth5) <- c("CHROM","POS","DEPTH")
+depth5$Barcode <- "Barcode5"
+
+depth6 <- read.table("Nanopore_depth/calls_2025-08-18_T14-41-42_barcode06_depth.txt")
+colnames(depth6) <- c("CHROM","POS","DEPTH")
+depth6$Barcode <- "Barcode6"
+
+depth7 <- read.table("Nanopore_depth/calls_2025-08-18_T18-37-07_barcode07_depth.txt")
+colnames(depth7) <- c("CHROM","POS","DEPTH")
+depth7$Barcode <- "Barcode7"
+
+depth8 <- read.table("Nanopore_depth/calls_2025-08-18_T18-37-05_barcode08_depth.txt")
+colnames(depth8) <- c("CHROM","POS","DEPTH")
+depth8$Barcode <- "Barcode8"
+
+depth9 <- read.table("Nanopore_depth/calls_2025-08-18_T18-37-05_barcode09_depth.txt")
+colnames(depth9) <- c("CHROM","POS","DEPTH")
+depth9$Barcode <- "Barcode9"
+
+depth10 <- read.table("Nanopore_depth/calls_2025-08-18_T18-37-05_barcode10_depth.txt")
+colnames(depth10) <- c("CHROM","POS","DEPTH")
+depth10$Barcode <- "Barcode10"
+
+depth11 <- read.table("Nanopore_depth/calls_2025-08-18_T18-41-33_barcode11_depth.txt")
+colnames(depth11) <- c("CHROM","POS","DEPTH")
+depth11$Barcode <- "Barcode11"
+
+depth12 <- read.table("Nanopore_depth/calls_2025-08-18_T18-47-38_barcode12_depth.txt")
+colnames(depth12) <- c("CHROM","POS","DEPTH")
+depth12$Barcode <- "Barcode12"
+
+depth13 <- read.table("Nanopore_depth/calls_2025-08-18_T18-50-46_barcode13_depth.txt")
+colnames(depth13) <- c("CHROM","POS","DEPTH")
+depth13$Barcode <- "Barcode13"
+
+depth14 <- read.table("Nanopore_depth/calls_2025-08-18_T18-51-59_barcode14_depth.txt")
+colnames(depth14) <- c("CHROM","POS","DEPTH")
+depth14$Barcode <- "Barcode14"
+
+depth15 <- read.table("Nanopore_depth/calls_2025-08-18_T18-53-17_barcode15_depth.txt")
+colnames(depth15) <- c("CHROM","POS","DEPTH")
+depth15$Barcode <- "Barcode15"
+
+depth16 <- read.table("Nanopore_depth/calls_2025-08-18_T18-56-22_barcode16_depth.txt")
+colnames(depth16) <- c("CHROM","POS","DEPTH")
+depth16$Barcode <- "Barcode16"
+
+depth17 <- read.table("Nanopore_depth/calls_2025-08-18_T18-57-35_barcode17_depth.txt")
+colnames(depth17) <- c("CHROM","POS","DEPTH")
+depth17$Barcode <- "Barcode17"
+
+depth18 <- read.table("Nanopore_depth/calls_2025-08-18_T18-59-02_barcode18_depth.txt")
+colnames(depth18) <- c("CHROM","POS","DEPTH")
+depth18$Barcode <- "Barcode18"
+
+depth19 <- read.table("Nanopore_depth/calls_2025-08-18_T19-00-14_barcode19_depth.txt")
+colnames(depth19) <- c("CHROM","POS","DEPTH")
+depth19$Barcode <- "Barcode19"
+
+depth20 <- read.table("Nanopore_depth/calls_2025-08-18_T19-01-05_barcode20_depth.txt")
+colnames(depth20) <- c("CHROM","POS","DEPTH")
+depth20$Barcode <- "Barcode20"
+
+depth21 <- read.table("Nanopore_depth/calls_2025-08-18_T19-03-31_barcode21_depth.txt")
+colnames(depth21) <- c("CHROM","POS","DEPTH")
+depth21$Barcode <- "Barcode21"
+
+depth22 <- read.table("Nanopore_depth/calls_2025-08-18_T19-06-10_barcode22_depth.txt")
+colnames(depth22) <- c("CHROM","POS","DEPTH")
+depth22$Barcode <- "Barcode22"
+
+depth23 <- read.table("Nanopore_depth/calls_2025-08-18_T19-06-33_barcode23_depth.txt")
+colnames(depth23) <- c("CHROM","POS","DEPTH")
+depth23$Barcode <- "Barcode23"
 
 adapt2 <- read.table("Output/NanoporeRegionSelection_061224.txt")
 colnames(adapt2) <- c("CHROM", "START", "END")
+
+## rbind and join metadata to depth files
+depthall <- rbind(depth3,depth4,depth5,depth6,depth7,depth8,depth9,depth10,depth11,
+      depth12,depth13,depth14,depth15,depth16,depth17,depth18,depth19,
+      depth20,depth21,depth22,depth23)
+
 ```
 
 ### match depth to nanopore adaptive regions
-```{r}
+```{r,warning=F}
 ## match file to adaptive sequencing
-adapt1$LENGTH <- adapt1$END - adapt1$START
-adapt1$NAME <- paste0(adapt1$CHROM,":",adapt1$START,"-",adapt1$END,",", adapt1$LENGTH)
+# adapt1$LENGTH <- adapt1$END - adapt1$START
+# adapt1$NAME <- paste0(adapt1$CHROM,":",adapt1$START,"-",adapt1$END,",", adapt1$LENGTH)
 adapt2$LENGTH <- adapt2$END - adapt2$START
 adapt2$NAME <- paste0(adapt2$CHROM,":",adapt2$START,"-",adapt2$END,",", adapt2$LENGTH)
 
-depth1$NAME <- NA
-depth2$NAME <- NA
-depth3$NAME <- NA
-depth4$NAME <- NA
+depthall$NAME <- NA
 
-for (i in 1:nrow(adapt1)) {
-  depth1$NAME[which(depth1$CHROM == adapt1$CHROM[i] &
-                      depth1$POS >= adapt1$START[i] &
-                      depth1$POS < adapt1$END[i])] <- adapt1$NAME[i]
-  
-  depth2$NAME[which(depth2$CHROM == adapt1$CHROM[i] &
-                      depth2$POS >= adapt1$START[i] &
-                      depth2$POS < adapt1$END[i])] <- adapt1$NAME[i]
-}
+# for (i in 1:nrow(adapt1)) {
+#   depth1$NAME[which(depth1$CHROM == adapt1$CHROM[i] &
+#                       depth1$POS >= adapt1$START[i] &
+#                       depth1$POS < adapt1$END[i])] <- adapt1$NAME[i]
+#   
+#   depth2$NAME[which(depth2$CHROM == adapt1$CHROM[i] &
+#                       depth2$POS >= adapt1$START[i] &
+#                       depth2$POS < adapt1$END[i])] <- adapt1$NAME[i]
+# }
 
 for (i in 1:nrow(adapt2)) {
-  depth3$NAME[which(depth3$CHROM == adapt2$CHROM[i] &
-                      depth3$POS >= adapt2$START[i] &
-                      depth3$POS < adapt2$END[i])] <- adapt2$NAME[i]
-  
-  depth4$NAME[which(depth4$CHROM == adapt2$CHROM[i] &
-                      depth4$POS >= adapt2$START[i] &
-                      depth4$POS < adapt2$END[i])] <- adapt2$NAME[i]
+  depthall$NAME[which(depthall$CHROM == adapt2$CHROM[i] &
+                      depthall$POS >= adapt2$START[i] &
+                      depthall$POS < adapt2$END[i])] <- adapt2$NAME[i]
 }
 ```
 
 ### Put files together
-```{r}
-summ1 <- depth1 %>% 
-  group_by(NAME) %>% 
+```{r,warning=F}
+summall <- depthall %>% 
+  group_by(Barcode,NAME) %>% 
   summarise(avg1 = mean(DEPTH),
             med1 = median(DEPTH)) %>% 
   separate(col = NAME,into = c("NAME","LENGTH"),sep = ",")
-
-summ2 <- depth2 %>% 
-  group_by(NAME) %>% 
-  summarise(avg2 = mean(DEPTH),
-            med2 = median(DEPTH)) %>% 
-  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",")
-
-summ3 <- depth3 %>% 
-  group_by(NAME) %>% 
-  summarise(avg3 = mean(DEPTH),
-            med3 = median(DEPTH)) %>% 
-  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",") %>% 
-  filter(!is.na(NAME))
-
-summ4 <- depth4 %>% 
-  group_by(NAME) %>% 
-  summarise(avg4 = mean(DEPTH),
-            med4 = median(DEPTH)) %>% 
-  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",")%>% 
-  filter(!is.na(NAME))
-
-
-
-summall <- full_join(summ1,summ2,by = c("NAME","LENGTH"))
-summall <- full_join(summall,summ3,by = c("NAME","LENGTH"))
-summall <- full_join(summall,summ4,by = c("NAME","LENGTH"))
-
-summ1$Barcode <- "Barcode1"
-summ2$Barcode <- "Barcode2"
-summ3$Barcode <- "Barcode3"
-summ4$Barcode <- "Barcode4"
-
-depth3$Barcode <- "Barcode3"
-depth4$Barcode <- "Barcode4"
 ```
 
 
 ### Figures
-```{r}
-rbind(depth3,depth4) |>
+```{r,warning=F}
+depthall %>% 
   separate(col = NAME,into = c("NAME","LENGTH"),sep = ",") %>% 
   group_by(NAME,Barcode) %>% 
   reframe(spot=POS-min(POS)+1,
@@ -195,20 +511,7 @@ rbind(depth3,depth4) |>
   geom_line(alpha=0.6) +
   theme_bw()
 
-rbind(depth1,depth2) |>
-  separate(col = NAME,into = c("NAME","LENGTH"),sep = ",") %>% 
-  group_by(NAME,Barcode) %>% 
-  reframe(spot=POS-min(POS)+1,
-          DEPTH=DEPTH,
-          LENGTH=LENGTH) %>% 
-  filter(!is.na(NAME)) %>% 
-  ggplot(aes(x=spot,y=DEPTH,group=NAME,color=as.numeric(LENGTH)))+
-  facet_wrap(~Barcode,scales = "free")+
-  geom_line()+
-  scale_color_viridis_c(option="magma")+
-  theme_bw()
-
-rbind(depth3,depth4) |>
+depthall %>% 
   separate(col = NAME,into = c("NAME","LENGTH"),sep = ",") %>% 
   group_by(NAME,Barcode) %>% 
   reframe(spot=POS-min(POS)+1,
@@ -222,47 +525,41 @@ rbind(depth3,depth4) |>
   theme_bw()
  
 ##Pairwise plots
-par(mfrow = c(2,3))
-plot(summ1$med1,summ2$med2,xlab = "Barcode 1 - Age 4", ylab = "Barcode 2 - Age 15",xlim = c(0,600),ylim = c(0,600))
-plot(summ1$med1,summ3$med3,xlab = "Barcode 1 - Age 4", ylab = "Barcode 3 - Age 4",xlim = c(0,600),ylim = c(0,600))
-plot(summ1$med1,summ4$med4,xlab = "Barcode 1 - Age 4", ylab = "Barcode 4 - Age 15",xlim = c(0,600),ylim = c(0,600))
-plot(summ2$med2,summ3$med3,xlab = "Barcode 2 - Age 15", ylab = "Barcode 3 - Age 4",xlim = c(0,600),ylim = c(0,600))
-plot(summ2$med2,summ4$med4,xlab = "Barcode 2 - Age 15", ylab = "Barcode 4 - Age 15",xlim = c(0,600),ylim = c(0,600))
-plot(summ3$med3,summ4$med4,xlab = "Barcode 3 - Age 4", ylab = "Barcode 4 - Age 15",xlim = c(0,600),ylim = c(0,600))
+# par(mfrow = c(2,3))
+# plot(summ1$med1,summ2$med2,xlab = "Barcode 1 - Age 4", ylab = "Barcode 2 - Age 15",xlim = c(0,600),ylim = c(0,600))
+# plot(summ1$med1,summ3$med3,xlab = "Barcode 1 - Age 4", ylab = "Barcode 3 - Age 4",xlim = c(0,600),ylim = c(0,600))
+# plot(summ1$med1,summ4$med4,xlab = "Barcode 1 - Age 4", ylab = "Barcode 4 - Age 15",xlim = c(0,600),ylim = c(0,600))
+# plot(summ2$med2,summ3$med3,xlab = "Barcode 2 - Age 15", ylab = "Barcode 3 - Age 4",xlim = c(0,600),ylim = c(0,600))
+# plot(summ2$med2,summ4$med4,xlab = "Barcode 2 - Age 15", ylab = "Barcode 4 - Age 15",xlim = c(0,600),ylim = c(0,600))
+# plot(summ3$med3,summ4$med4,xlab = "Barcode 3 - Age 4", ylab = "Barcode 4 - Age 15",xlim = c(0,600),ylim = c(0,600))
 ```
 
 ```{r}
-depall <- rbind(depth1,depth2)
-depall <- rbind(depall,depth3)
-depall <- rbind(depall,depth4)
-
 CpGs_clock <- read.csv("Output/CpGList_LengthAge.csv")
 
-depth_CpGs <- depall[which(depall$CHROM == CpGs_clock$CHROM[1] & depall$POS == CpGs_clock$POS[1]),]
+depth_CpGs <- depthall[which(depthall$CHROM == CpGs_clock$CHROM[1] & depthall$POS == CpGs_clock$POS[1]),]
 
 for (i in 2:nrow(CpGs_clock)) {
-  depth_CpGs <- rbind(depth_CpGs,depall[which(depall$CHROM == CpGs_clock$CHROM[i] & depall$POS == CpGs_clock$POS[i]),])
+  depth_CpGs <- rbind(depth_CpGs,depthall[which(depthall$CHROM == CpGs_clock$CHROM[i] & depthall$POS == CpGs_clock$POS[i]),])
 }
 
-depth_CpGs$type <- paste(depth_CpGs$RUN,depth_CpGs$INDIVID,sep = ": ")
 depth_CpGs$CpG <- paste(depth_CpGs$CHROM,depth_CpGs$POS,sep = "_")
 
 depth_CpGs$Depth <- NA
 
-depth_CpGs$Depth[which(depth_CpGs$DEPTH < 50)] <- "0-50"
-#depth_CpGs$Depth[which(depth_CpGs$DEPTH > 50 & depth_CpGs$DEPTH <= 100)] <- "50-100"
-#depth_CpGs$Depth[which(depth_CpGs$DEPTH > 100 & depth_CpGs$DEPTH <= 200)] <- "100-200"
-#depth_CpGs$Depth[which(depth_CpGs$DEPTH > 200 & depth_CpGs$DEPTH <= 300)] <- "200-300"
-#depth_CpGs$Depth[which(depth_CpGs$DEPTH > 300 & depth_CpGs$DEPTH <= 400)] <- "300-400"
-depth_CpGs$Depth[which(depth_CpGs$DEPTH >= 50 & depth_CpGs$DEPTH <= 500)] <- "50-500"
-depth_CpGs$Depth[which(depth_CpGs$DEPTH > 500)] <- "500+"
+depth_CpGs$Depth[which(depth_CpGs$DEPTH < 25)] <- "0-25"
+depth_CpGs$Depth[which(depth_CpGs$DEPTH >= 25 & depth_CpGs$DEPTH <= 50)] <- "25-50"
+depth_CpGs$Depth[which(depth_CpGs$DEPTH > 50 & depth_CpGs$DEPTH <= 100)] <- "50-100"
+depth_CpGs$Depth[which(depth_CpGs$DEPTH > 100 & depth_CpGs$DEPTH <= 200)] <- "100-200"
+depth_CpGs$Depth[which(depth_CpGs$DEPTH > 200 & depth_CpGs$DEPTH <= 300)] <- "200-300"
+depth_CpGs$Depth[which(depth_CpGs$DEPTH > 300)] <- "300+"
 
-#tiff(filename = "Figures/NanoporeDepthComp_justCpGs.tiff",width = 150,height = 150,units = "mm",res = 400)
-ggplot(depth_CpGs,aes(x=type,y=CpG,fill = Depth))+
+tiff(filename = "Figures/NanoporeDepthComp_justCpGs.tiff",width = 150,height = 300,units = "mm",res = 400)
+ggplot(depth_CpGs,aes(x=Barcode,y=CpG,fill = Depth))+
   geom_tile(color = "white",
-            lwd = 0.5,
+            #lwd = 0.5,
             linetype = 1)+
-  facet_wrap(~type,scales = "free_x",ncol = 4)+
+  facet_wrap(~Barcode,scales = "free_x",ncol = 4)+
   #coord_fixed(expand = FALSE) +
   scale_fill_paletteer_d("nationalparkcolors::Acadia")+
   labs(y = "CpG site in Epigenetic Age Prediction (n = 87)")+
@@ -275,8 +572,7 @@ ggplot(depth_CpGs,aes(x=type,y=CpG,fill = Depth))+
         strip.text = element_text(size = 12,color = "black"),
         strip.background = element_blank(),
         panel.background = element_blank(),
-        plot.title = element_text(size = 14,face = "bold"),
-        legend.position = "none")
-#dev.off()
+        plot.title = element_text(size = 14,face = "bold"))
+dev.off()
 ```
 
