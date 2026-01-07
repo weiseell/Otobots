@@ -14,7 +14,7 @@ Once we run the elastic net model with all potential CpGs, we do the actual age 
 CpGlist_best_comb <- read.csv(file = "Output/CpGList_LengthAge.csv")
 ##load data
 # if doing clock from scratch
-load("Input/allCpGs_AddAge1629Samples.rda")
+load("MethylKitInput/allCpGs_MinimalMissing.rda")
 sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
 
 #load libraries
@@ -29,25 +29,32 @@ library(ggforce)
 ### Preparing data for elastic net
 ```{r}
 ## Data prep ####
+set.seed(12345)
+# subset to age 4-15 wild data
+sexdata <- sexdata %>% 
+  filter(DataType == "Wild" & Age < 20)
+
+#running a glmnet with all selected sites
+bestCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_best_comb$CpGlist_best)]
+
 #remove CpGs with NAs for the model
-nas <- colSums(is.na(allCpGs1))
-allCpGs1 <- allCpGs1[,which(nas < 1)]
+nas <- colSums(is.na(bestCpGs))
+bestCpGs <- bestCpGs[,which(nas < 1)]
+bestCpGs <- cbind(indivname=allCpGs1$indivname,bestCpGs)
+
 #write.csv(allCpGs1,"allCpGs_nonas.csv",append = F,quote = F)
 
-#remove NW and mito data from data set
-allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NW",
-                                    colnames(allCpGs1),perl = T)))]
-allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_009709.1",
-                                    colnames(allCpGs1),perl = T)))]
 #!# remove sex-det and inversion!!!
-allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047158.1",
-                                    colnames(allCpGs1),perl = T)))]
-allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047162.1",
-                                    colnames(allCpGs1),perl = T)))]
+#allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047158.1",
+#                                    colnames(allCpGs1),perl = T)))]
+#allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047162.1",
+#                                    colnames(allCpGs1),perl = T)))]
+# remove positive control from HPEI set
+#allCpGs1 <- allCpGs1[-125,]
 
 # check nas across individuals
 # should be zero!!
-nas_row <- rowSums(is.na(allCpGs1))
+#nas_row <- rowSums(is.na(allCpGs1))
 
 #log age data
 sexdata <- sexdata %>% 
@@ -68,18 +75,15 @@ testpick <- sexdata %>%
   group_by(Age,ObsSex) %>% 
   slice_sample(n = 1)
 
-# remove a set of the 20+ individuals for training
-testpick <- testpick[1:(nrow(testpick)-2),]
-testpick <- testpick[-22,]
 #sort other individuals into training data
 trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
 
 #select CpG sites for each group
-testdat <- allCpGs1[which(allCpGs1$indivname %in% testpick$indivname),]
-testdat <- full_join(testpick,testdat,by = "indivname")
+testdat <- bestCpGs[which(bestCpGs$indivname %in% testpick$indivname),]
+testdat <- left_join(testpick,testdat,by = "indivname")
 
-traindat <- allCpGs1[which(!(allCpGs1$indivname %in% testpick$indivname)),]
-traindat <- full_join(trainpick,traindat,by = "indivname")
+traindat <- bestCpGs[which(!(bestCpGs$indivname %in% testpick$indivname)),]
+traindat <- left_join(trainpick,traindat,by = "indivname")
 ```
 
 
@@ -88,10 +92,14 @@ traindat <- full_join(trainpick,traindat,by = "indivname")
 ## Full Data Model ####
 #select data and run glmnet to select sites
 y <- traindat$LogAge
-x <- as.matrix(traindat[,-1:-6])
 
 #running a glmnet with all selected sites
 bestCpG_train <- as.matrix(traindat[,which(colnames(traindat) %in% CpGlist_best_comb$CpGlist_best)])
+
+table(colSums(is.na(bestCpG_train)))
+nas <- colSums(is.na(bestCpG_train))
+bestCpG_train <- bestCpG_train[,which(nas < 1)]
+
 model1 <- cv.glmnet(bestCpG_train,y,family = "gaussian",alpha = 0.05,nfolds = 20)
 coef.allCpG <- as.matrix(coef(model1,s = "lambda.min"))
 
@@ -100,16 +108,20 @@ bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
 #predict testdat
 ytest <- testdat$LogAge
 xtest <- as.matrix(testdat[,which(colnames(testdat) %in% CpGlist_best_comb$CpGlist_best)])
+nas <- colSums(is.na(bestCpG_train))
+xtest <- xtest[,which(nas < 1)]
 
 #predict and correlate train data
-pred_logage <- predict(model1,newx = bestCpG_train,type = "response",s = model1$lambda.min)
+pred_logage <- predict(model1,newx = bestCpG_train,type = "response",s = model1$lambda.1se)
+colnames(pred_logage) <- "Epi_LogAge"
 train_cor <- cor.test(y,pred_logage)
 plot(y,pred_logage,col = traindat$ObsSex)
 
 plot(model1, xvar = "dev", label = TRUE)
 
 #predict and correlate test data
-pred_logage_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.min)
+pred_logage_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.1se)
+colnames(pred_logage_test) <- "Epi_LogAge"
 test_cor <- cor.test(ytest,pred_logage_test)
 plot(ytest,pred_logage_test,col = testdat$ObsSex)
 
@@ -134,12 +146,14 @@ xtestf <- as.matrix(testf[,which(colnames(testf) %in% CpGlist_best_comb$CpGlist_
 modelf <- cv.glmnet(xf,yf,family = "gaussian",alpha = 0.05,nfolds = 10)
 
 #predict train and test correlation
-pred_logage_f <- predict(modelf,newx = xf,type = "response",s = model1$lambda.min)
+pred_logage_f <- predict(modelf,newx = xf,type = "response",s = model1$lambda.1se)
+colnames(pred_logage_f) <- "Epi_LogAge"
 train_cor_f <- cor.test(yf,pred_logage_f)
 #plot(yf,pred_logage_f)
 
 #predict test and correlation
-pred_logage_test_f <- predict(modelf,newx = xtestf,type = "response",s = model1$lambda.min)
+pred_logage_test_f <- predict(modelf,newx = xtestf,type = "response",s = model1$lambda.1se)
+colnames(pred_logage_test_f) <- "Epi_LogAge"
 test_cor_f <- cor.test(ytestf,pred_logage_test_f)
 #plot(ytestf,pred_logage_test_f)
 
@@ -161,12 +175,14 @@ xtestm <- as.matrix(testm[,which(colnames(testm) %in% CpGlist_best_comb$CpGlist_
 modelm <- cv.glmnet(xm,ym,family = "gaussian",alpha = 0.05,nfolds = 10)
 
 #predict train and correlate
-pred_logage_m <- predict(modelm,newx = xm,type = "response",s = model1$lambda.min)
+pred_logage_m <- predict(modelm,newx = xm,type = "response",s = model1$lambda.1se)
+colnames(pred_logage_m) <- "Epi_LogAge"
 train_cor_m <- cor.test(ym,pred_logage_m)$estimate
 #plot(ym,pred_logage_m)
 
 #predict test and correlate
-pred_logage_test_m <- predict(modelm,newx = xtestm,type = "response",s = model1$lambda.min)
+pred_logage_test_m <- predict(modelm,newx = xtestm,type = "response",s = model1$lambda.1se)
+colnames(pred_logage_test_m) <- "Epi_LogAge"
 test_cor_m <- cor.test(ytestm,pred_logage_test_m)
 #plot(ytestm,pred_logage_test_m)
 
@@ -182,31 +198,67 @@ test_MAE_m <- median(abs(exp(ytestm) - exp(pred_logage_test_m[ ,1])))
 ##Plots ####
 ## make results into dataframes
 #clock correlation plot
-train_res <- data.frame(indivname=traindat$indivname,ObsSex=traindat$ObsSex,Length=traindat$Length,LogAge=y,LogEpiAge=pred_logage,type="Train")
-test_res <- data.frame(indivname=testdat$indivname,ObsSex=testdat$ObsSex,Length=testdat$Length,LogAge=ytest,LogEpiAge=pred_logage_test,type="Test")
+train_res <- data.frame(indivname=traindat$indivname,
+                        ObsSex=traindat$ObsSex,
+                        Length=traindat$Length,
+                        LogAge=y,
+                        Epi_LogAge=pred_logage,
+                        type="Train",
+                        sampletype=traindat$DataType)
+test_res <- data.frame(indivname=testdat$indivname,
+                       ObsSex=testdat$ObsSex,
+                       Length=testdat$Length,
+                       LogAge=ytest,
+                       Epi_LogAge=pred_logage_test,
+                       type="Test",
+                       sampletype=testdat$DataType)
 res_comb_all <- rbind(train_res,test_res)
-res_comb_all <- res_comb_all %>% mutate(Age=exp(LogAge),EpiAge=exp(s.0.2833684))
+res_comb_all <- res_comb_all %>% mutate(Age=exp(LogAge),EpiAge=exp(Epi_LogAge))
 res_comb_all$ModelName <- "Combined"
 
-train_res_f <- data.frame(indivname=trainf$indivname,ObsSex=trainf$ObsSex,Length=trainf$Length,LogAge=yf,LogEpiAge=pred_logage_f,type="Train")
-test_res_f <- data.frame(indivname=testf$indivname,ObsSex=testf$ObsSex,Length=testf$Length,LogAge=ytestf,LogEpiAge=pred_logage_test_f,type="Test")
+train_res_f <- data.frame(indivname=trainf$indivname,
+                          ObsSex=trainf$ObsSex,
+                          Length=trainf$Length,
+                          LogAge=yf,
+                          Epi_LogAge=pred_logage_f,
+                          type="Train", 
+                          sampletype=trainf$DataType)
+test_res_f <- data.frame(indivname=testf$indivname,
+                         ObsSex=testf$ObsSex,
+                         Length=testf$Length,
+                         LogAge=ytestf,
+                         Epi_LogAge=pred_logage_test_f,
+                         type="Test",
+                         sampletype=testf$DataType)
 res_comb_all_f <- rbind(train_res_f,test_res_f)
-res_comb_all_f <- res_comb_all_f %>% mutate(Age=exp(LogAge),EpiAge=exp(s.0.2833684))
+res_comb_all_f <- res_comb_all_f %>% mutate(Age=exp(LogAge),EpiAge=exp(Epi_LogAge))
 res_comb_all_f$ModelName <- "Female Only"
 
-train_res_m <- data.frame(indivname=trainm$indivname,ObsSex=trainm$ObsSex,Length=trainm$Length,LogAge=ym,LogEpiAge=pred_logage_m,type="Train")
-test_res_m <- data.frame(indivname=testm$indivname,ObsSex=testm$ObsSex,Length=testm$Length,LogAge=ytestm,LogEpiAge=pred_logage_test_m,type="Test")
+train_res_m <- data.frame(indivname=trainm$indivname,
+                          ObsSex=trainm$ObsSex,
+                          Length=trainm$Length,
+                          LogAge=ym,
+                          Epi_LogAge=pred_logage_m,
+                          type="Train",
+                          sampletype=trainm$DataType)
+test_res_m <- data.frame(indivname=testm$indivname,
+                         ObsSex=testm$ObsSex,
+                         Length=testm$Length,
+                         LogAge=ytestm,
+                         Epi_LogAge=pred_logage_test_m,
+                         type="Test",
+                         sampletype=testm$DataType)
 res_comb_all_m <- rbind(train_res_m,test_res_m)
-res_comb_all_m <- res_comb_all_m %>% mutate(Age=exp(LogAge),EpiAge=exp(s.0.2833684))
+res_comb_all_m <- res_comb_all_m %>% mutate(Age=exp(LogAge),EpiAge=exp(Epi_LogAge))
 res_comb_all_m$ModelName <- "Male Only"
 
 res_merged <- rbind(res_comb_all,res_comb_all_f,res_comb_all_m)
-#jpeg(file = "Figures/AgingClock_Combined_AgeLengthCpGs_AddAge1629.jpeg", width = 900, height = 480)
+#jpeg(file = "Figures/AgingClock_Combined_AgeLengthCpGs_NewRun_AddHatchery_Age4to19_Age4to15CpGs.jpeg", width = 900, height = 480)
 ggplot(res_merged,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = type))+
   facet_grid(~ModelName) +
   geom_point(size = 3.5)+
   geom_jitter(height = 0,width = 0.1)+
-  ylim(0, 30) + xlim(0, 30) +
+  ylim(0, 20) + xlim(0, 20) +
   geom_abline(slope = 1,intercept = 0) +
   xlab("Otolith Age (years)") +
   ylab("Molecular clock Age (years)") +
@@ -220,6 +272,7 @@ ggplot(res_merged,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = type
 #MAE values
 res_merged$AbsErr <- abs(res_merged$Age - res_merged$EpiAge)
 
+#jpeg(file = "Figures/MAEPlot_AgeLengthCpGs_NewRun_AddHatchery_Age4to19_Age4to15CpGs.jpeg", width = 900, height = 480)
 
 ggplot(res_merged,aes(x = type, y = AbsErr)) +
   geom_boxplot() +
@@ -228,7 +281,7 @@ ggplot(res_merged,aes(x = type, y = AbsErr)) +
   scale_color_manual(values = c(wes_palette("IsleofDogs1")[1],wes_palette("IsleofDogs1")[3])) +
   theme_classic(base_size = 18) + 
   labs(color = "Sex", x = element_blank(), y = "Absolute Error")
-
+#dev.off()
 ```
 
 ```

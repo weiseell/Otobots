@@ -113,14 +113,14 @@ pmmeta <- left_join(agesexmeta,pmall,by = "Barcode")
 #reformatting to match Illumina individual data
 pmmeta1 <- pmmeta %>% 
   mutate(CpG = paste(CHROM,END,sep = ".")) %>% 
-  filter(DEPTH > 20) %>% 
+  #filter(DEPTH > 20) %>% 
   dplyr::select(Indiv,Sex,Age,Barcode,CpG,PERCMOD) %>% 
   spread(key = CpG, value = PERCMOD) %>% 
   arrange(Barcode) 
 
 pmmeta_long <- pmmeta %>% 
   mutate(CpG = paste(CHROM,END,sep = ".")) %>% 
-  filter(DEPTH > 20) %>% 
+  #filter(DEPTH > 20) %>% 
   dplyr::select(Indiv,Sex,Age,Barcode,CpG,PERCMOD)
 
 pmmeta_best <- pmmeta_long[which(pmmeta_long$CpG %in% CpGlist_best_comb$CpGlist_best),]
@@ -370,6 +370,10 @@ ggplot(res_comb_all,aes(x = Age,y = EpiAge,color=type,shape = as.character(ObsSe
 depth3 <- read.table("Nanopore_depth/calls_2025-08-18_T14-08-26_barcode03_depth.txt")
 colnames(depth3) <- c("CHROM","POS","DEPTH")
 depth3$Barcode <- "Barcode3"
+
+depth4 <- read.table("C:/Users/mvanw/Downloads/barcode04.merged.sorted.acceptedreadsonly.bam_depth.txt")
+colnames(depth4) <- c("CHROM","POS","DEPTH")
+depth4$Barcode <- "Barcode4"
 
 depth4 <- read.table("Nanopore_depth/calls_2025-08-18_T14-20-31_barcode04_depth.txt")
 colnames(depth4) <- c("CHROM","POS","DEPTH")
