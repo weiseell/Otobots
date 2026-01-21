@@ -1,0 +1,358 @@
+---
+title: "ModelComparisonOptions"
+author: "Ellie Weise"
+date: "2026-01-20"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Elastic Net (current option)
+
+```{r,message=F,warning=FALSE}
+#load libraries
+library(tidyverse)
+library(glmnet)
+library(MASS)
+library(wesanderson)
+library(ggforce)
+###run clock with best CpG sites
+CpGlist_best_4to15 <- read.csv(file = "Output/CpGList_LengthAge_Age4to15_121025.csv")
+CpGlist_best_4to15$Set <- "Age4to15"
+CpGlist_best_4to29 <- read.csv(file = "Output/CpGList_LengthAge_Age4to29_121025.csv")
+CpGlist_best_4to29$Set <- "Age4to29"
+CpGlist_all <- rbind(CpGlist_best_4to15,CpGlist_best_4to29)
+#CpGlist_all <- CpGlist_best_old
+##load data
+# if doing clock from scratch
+load("MethylKitInput/allCpGs_MinimalMissing.rda")
+sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
+
+```
+
+### Preparing data for elastic net
+```{r}
+## Data prep ####
+set.seed(1230)
+# subset to age 4-19 wild data
+# get rid of sparse data issue for now as well
+sexdata <- sexdata %>% 
+  filter(DataType == "Wild" & Age < 20)
+
+#running a glmnet with all selected sites
+#CpGlist_all <- CpGlist_all %>% filter(ModelType == "Age")
+bestCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_all$CpGlist_best)]
+
+#remove CpGs with NAs for the model
+nas <- colSums(is.na(bestCpGs))
+bestCpGs <- bestCpGs[,which(nas < 1)]
+bestCpGs <- cbind(indivname=allCpGs1$indivname,bestCpGs)
+
+#log age data
+sexdata <- sexdata %>% 
+  mutate(LogAge = log(Age),LogLen = log(Length))
+```
+
+
+### Separating into Training and Testing Data Sets 
+```{r}
+#randomly select individuals for testing
+testpick <- sexdata %>% 
+  group_by(Age,ObsSex) %>% 
+  slice_sample(n = 1)
+
+#sort other individuals into training data
+trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
+
+#select CpG sites for each group
+testdat <- bestCpGs[which(bestCpGs$indivname %in% testpick$indivname),]
+testdat <- left_join(testpick,testdat,by = "indivname")
+
+traindat <- bestCpGs[which(!(bestCpGs$indivname %in% testpick$indivname)),]
+traindat <- left_join(trainpick,traindat,by = "indivname")
+```
+
+### Run Elastic Net Model on Training Set and Predict Test Set
+```{r,warning=F}
+## Full Data Model ####
+#select data and run glmnet to select sites
+y <- traindat$LogAge
+
+#running a glmnet with all selected sites
+bestCpG_train <- as.matrix(traindat[,which(colnames(traindat) %in% CpGlist_all$CpGlist_best)])
+
+nas <- colSums(is.na(bestCpG_train))
+bestCpG_train <- bestCpG_train[,which(nas < 1)]
+
+model1 <- cv.glmnet(bestCpG_train,y,family = "gaussian",alpha = 0.05,nfolds = 20)
+coef.allCpG <- as.matrix(coef(model1,s = "lambda.min"))
+
+bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
+
+#predict testdat
+ytest <- testdat$LogAge
+xtest <- as.matrix(testdat[,which(colnames(testdat) %in% CpGlist_all$CpGlist_best)])
+nas <- colSums(is.na(bestCpG_train))
+xtest <- xtest[,which(nas < 1)]
+
+#predict and correlate train data
+pred_logage <- predict(model1,newx = bestCpG_train,type = "response",s = model1$lambda.1se)
+colnames(pred_logage) <- "Epi_LogAge"
+train_cor <- cor.test(y,pred_logage)
+plot(y,pred_logage,col = traindat$ObsSex)
+
+plot(model1, xvar = "dev", label = TRUE)
+
+#predict and correlate test data
+pred_logage_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.1se)
+colnames(pred_logage_test) <- "Epi_LogAge"
+test_cor <- cor.test(ytest,pred_logage_test)
+plot(ytest,pred_logage_test,col = testdat$ObsSex)
+
+#uncertainty for train and test
+train_MAE <- median(abs(exp(y) - exp(pred_logage[ ,1])))
+test_MAE <- median(abs(exp(ytest) - exp(pred_logage_test[ ,1])))
+print(train_MAE,test_MAE)
+# plot prediction
+#clock correlation plot
+train_res <- data.frame(indivname=traindat$indivname,
+                        ObsSex=traindat$ObsSex,
+                        Length=traindat$Length,
+                        LogAge=y,
+                        Epi_LogAge=pred_logage,
+                        type="Train",
+                        sampletype=traindat$DataType)
+test_res <- data.frame(indivname=testdat$indivname,
+                       ObsSex=testdat$ObsSex,
+                       Length=testdat$Length,
+                       LogAge=ytest,
+                       Epi_LogAge=pred_logage_test,
+                       type="Test",
+                       sampletype=testdat$DataType)
+res_comb_all <- rbind(train_res,test_res)
+res_comb_all <- res_comb_all %>% mutate(Age=exp(LogAge),EpiAge=exp(Epi_LogAge))
+res_comb_all$ModelName <- "Combined"
+ggplot(res_comb_all,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = type))+
+  facet_grid(~ModelName) +
+  geom_point(size = 3.5)+
+  geom_jitter(height = 0,width = 0.1)+
+  ylim(0, 30) + xlim(0, 30) +
+  geom_abline(slope = 1,intercept = 0) +
+  xlab("Otolith Age (years)") +
+  ylab("Molecular clock Age (years)") +
+  ggtitle("Correlation Between Otolith and Molecular Clock Age") +
+  scale_color_manual(values = c(wes_palette("IsleofDogs1")[1],wes_palette("IsleofDogs1")[3]))+
+  theme_classic(base_size = 18) + 
+  theme(legend.position = "none")
+```
+
+I've also tried this option with male and female separated model options, but since we're comparing overall methods I'm going to try these other options with the full data set first and then try it with male and female separated clocks once I have a better handle on the models. I also removed the hatchery data for now, it should help with the lack of 20+ age data, but they are all female and the age 23s look a little different from the wild data points around the same age, and I don't know if that's due to environmental difference or otolith error. Either way seems like a 'next problem' sort of thing.
+
+# Linear Model with correlated factors
+So this is an option Daniel and I talked through, trying a regular linear model with factors from the pre-selected CpGs that have high linear correlation with otolith age. Overall, I ended up with pretty similar predictions and MAE to elastic net, but it looks like it doesn't have the same issue with overestimating young individuals and underestimating older individuals.
+
+```{r}
+# subset to just wild data  for testing
+# goal is to prevent low sample size and environmental bias
+# for initial model, just to see if it works before adding more problems
+RF_CpGs <- sexdata %>% 
+  filter(DataType == "Wild")
+
+tmpCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_all$CpG)]
+CpGsbest_allsets <- data.frame(indivname=allCpGs1$indivname,tmpCpGs)
+
+testdf <- left_join(RF_CpGs,CpGsbest_allsets)
+
+# run cor.test for each CpG with age and with length
+cor_age4to19 <- testdf %>% 
+  pivot_longer(cols = starts_with("NC"),
+               names_to = "CpG",
+               values_to = "PercMethyl") %>% 
+  filter(Age < 20) %>% 
+  group_by(CpG) %>% 
+  summarise(CorAge4to19=cor.test(x=Age,y=PercMethyl)[["estimate"]],
+            CorAge4to19_LCI=cor.test(x=Age,y=PercMethyl)[["conf.int"]][1],
+            CorAge4to19_HCI=cor.test(x=Age,y=PercMethyl)[["conf.int"]][2],
+            CorLength4to19=cor.test(x=Length,y=PercMethyl)[["estimate"]],
+            CorLength4to19_LCI=cor.test(x=Length,y=PercMethyl)[["conf.int"]][1],
+            CorLength4to19_HCI=cor.test(x=Length,y=PercMethyl)[["conf.int"]][2])
+
+#!# correlations go up as the older individuals are excluded
+#!# improvements happen as 20+, 16+ and 15+ individuals are removed
+#!# is this otolith error increasing or methyl patterns getting messier? Probably both
+```
+
+```{r}
+## grab CpGs with decent linear correlation
+testdf_cor0.5 <- testdf[,colnames(testdf) %in% cor_age4to19$CpG[which(cor_age4to19$CorAge4to19 > 0.5)]]
+#!# upping to 0.6 cor minimum eliminated the perfectly linear covariates
+testdf_cor0.5 <- data.frame(Age=testdf$Age,testdf_cor0.5)
+testdf_cor0.5 <- testdf_cor0.5 %>% filter(Age < 20)
+
+## run a basic linear model
+model <- lm(Age~.,data = testdf_cor0.5)
+
+# looking for perfectly colinear variables
+ld.vars <- attributes(alias(model)$Complete)$dimnames[[1]]
+
+reduceddf <- testdf_cor0.5[,which(!(colnames(testdf_cor0.5) %in% ld.vars))]
+
+# rerun model without perfect colinear vars if needed
+model <- lm(Age~.,data = reduceddf)
+
+## get VIF colinearity tests
+library(olsrr)
+ols_vif_tol(model) %>% 
+  arrange(desc(VIF))
+
+# with cor < 0.6 eliminated, colinearity is below 10?
+# not what I was expecting but I will take it
+# eliminate colinear factors one by one until they are all less than 10
+reduceddf <- reduceddf[,which(colnames(reduceddf)!="NC_047172.1.26308364")]
+
+preds <- predict.lm(model)
+plot(testdf_cor0.5$Age,preds)
+cor.test(testdf_cor0.5$Age,preds)
+## Age 4-12 has cor > 0.99 and good predictions
+## Age 4-29 has cor~0.85 and underestimates the 20+ group but that 
+## could very well be a sample size artifact
+
+## plot CpG relationships and predictions
+reduceddf %>% 
+  pivot_longer(cols = starts_with("NC"),
+               names_to = "CpG",
+               values_to = "PercMethyl") %>% 
+  ggplot(aes(x=Age,y=PercMethyl))+
+    geom_point()+
+    facet_wrap(~CpG,scales = "free_y")
+
+data.frame(OtoAge=testdf_cor0.5$Age,EpiAge=preds) %>% 
+  ggplot(aes(x = OtoAge,y = EpiAge))+
+  geom_point(size = 3.5)+
+  geom_jitter(height = 0,width = 0.1)+
+  ylim(0, 30) + xlim(0, 30) +
+  geom_abline(slope = 1,intercept = 0) +
+  xlab("Otolith Age (years)") +
+  ylab("Molecular clock Age (years)") +
+  theme_classic(base_size = 18) + 
+  theme(legend.position = "none")
+
+MAE = median(abs(preds - testdf_cor0.5$Age))
+print(MAE)
+```
+
+# Attempts at Additive Models
+So the big struggle I'm having here is with how to find which factors are best suited to be included in the additive model. I did graph percent methylation versus both otolith age and length, but even if I do one per CpG 'region' that we identified it's still about 13 factors. I did still try that though and did a little bit of messing around with the edf values and linearity tests just to practice, along with a few randomly selected single CpG ones.
+
+### Single variable model test
+```{r}
+library(mgcv)
+gam_model <- gam(Age ~ s(NC_047172.1.26303009),data = testdf)
+summary(gam_model)
+gam.check(gam_model, k.rep = 1000)
+plot(reduceddf$Age,reduceddf$NC_047172.1.26303009)
+
+predictions = predict(gam_model,type = 'response',se = TRUE)
+
+df_preds = data.frame(testdf$Age, predictions) %>%
+  mutate(lower = fit - 1.96 * se.fit,
+         upper = fit + 1.96 * se.fit)
+
+ggplot(aes(x = testdf.Age, y = fit), data = df_preds) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = 'gray92') +
+  geom_line(color = '#56B4E9') +
+  geom_point(size = 3.5)+
+  theme_minimal()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+### Test with One CpG per region (too many but again just trying some things)
+These factors were grabbed based on the graphs, which I feel kind of sketchy about, but I just wanted to get an idea of what these could look like after adding more factors.
+
+```{r}
+# set options as generic 's' to see what the fit types should be
+gam_model2 <- gam(Age ~ s(NC_047151.1.9880) +
+                    s(NC_047163.1.29069872) +
+                    s(NC_047153.1.32666785) +
+                    s(NC_047155.1.30745806) +
+                    s(NC_047159.1.29166056) +
+                    s(NC_047164.1.2171813) +
+                    s(NC_047174.1.21430655) +
+                    s(NC_047172.1.26303009) +
+                    s(NC_047165.1.15408994) +
+                    s(NC_047165.1.910853) +
+                    s(NC_047167.1.11015458) +
+                    s(NC_047170.1.1470) +
+                    s(NC_047171.1.15408463) +
+                    s(NC_047171.1.25040373) +
+                    s(NC_047152.1.5986) +
+                    s(NC_047168.1.480431) +
+                    s(NC_047157.1.604941) +
+                    s(NC_047161.1.22201614) +
+                    s(NC_047169.1.16885311),data = testdf, method = "REML")
+
+# look at linearity and smooth factors
+basic_summary <- summary(gam_model2)
+# k values are below edf so I think that's okay
+gam.check(gam_model2)
+
+# look at edf values to see linear vs. nonlinear
+basic_summary$s.table
+
+## redo model with correct smooth factors based on edf values
+gam_model2 <- gam(Age ~ NC_047151.1.9880 +
+                    s(NC_047163.1.29069872) +
+                    s(NC_047153.1.32666785) +
+                    s(NC_047155.1.30745806) +
+                    NC_047159.1.29166056 +
+                    NC_047164.1.2171813 +
+                    s(NC_047174.1.21430655) +
+                    s(NC_047172.1.26303009) +
+                    NC_047165.1.15408994 +
+                    s(NC_047165.1.910853) +
+                    s(NC_047167.1.11015458) +
+                    s(NC_047170.1.1470) +
+                    s(NC_047171.1.15408463) +
+                    s(NC_047171.1.25040373) +
+                    s(NC_047152.1.5986) +
+                    s(NC_047168.1.480431) +
+                    s(NC_047157.1.604941) +
+                    NC_047161.1.22201614 +
+                    s(NC_047169.1.16885311),data = testdf, method = "REML")
+
+summary(gam_model2)
+
+# try predictions just to see
+predictions2 = predict(gam_model,type = 'response',se = TRUE)
+
+df_preds = data.frame(testdf$Age, predictions2) %>%
+  mutate(lower = fit - 1.96 * se.fit,
+         upper = fit + 1.96 * se.fit)
+
+ggplot(aes(x = testdf.Age, y = fit), data = df_preds) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = 'gray92') +
+  geom_line(color = '#56B4E9') +
+  geom_point(size = 3.5)+
+  theme_minimal()
+```
+
+
+
+
+
+
+
+
+

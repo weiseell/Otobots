@@ -27,7 +27,7 @@ We've removed regions of the genome related to sex-determination, a putative inv
 ## Data prep ####
 # subset to just wild data
 sexdata <- sexdata %>% 
-  filter(DataType == "Wild")
+  filter(DataType == "Wild" & Age < 16)
 
 alldat <- left_join(sexdata,allCpGs1,by = "indivname")
 
@@ -261,9 +261,11 @@ top_CpG_group_len <- counting %>%
 
 ## Concatenate the best CpGs across replicates
 ```{r}
+top_CpG_group$ModelType <- "Age"
+top_CpG_group_len$ModelType <- "Length"
 CpGlist_best_comb <- unique(rbind(top_CpG_group,top_CpG_group_len))
 
-write.csv(CpGlist_best_comb,file = "Output/CpGList_LengthAge_Age15to29_121025.csv",row.names = F)
+write.csv(CpGlist_best_comb,file = "Output/CpGList_LengthAge_Age4to15_121025.csv",row.names = F)
 ```
 
 ## Figures
