@@ -37,6 +37,7 @@ CpGlist_all <- CpGlist_all %>%
 CpGlist <- data.frame(CpG=unique(CpGlist_all$CpGlist_best))
 
 bestCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_all$CpGlist_best)]
+bestCpGs <- cbind(indivname=allCpGs1$indivname,bestCpGs)
 CpGs_covars <- left_join(sexdata,bestCpGs)
 CpGs_covars <- CpGs_covars %>% filter(DataType == "Wild")
 ## plot CpGs against age and length for each chromosome, print to pdf, to see all the CpGs big enough
@@ -67,7 +68,7 @@ for (i in 1:length(unique(CpGlist_all$CHROM))) {
 dev.off()
 
 
-# subset to just wild data  for testing
+# subset to just wild data for testing
 # goal is to prevent low sample size and environmental bias
 # for initial model, just to see if it works before adding more problems
 RF_CpGs <- sexdata %>% 
@@ -239,7 +240,7 @@ df_preds = data.frame(reduceddf$Age, predictions) %>%
 ggplot(aes(x = reduceddf.Age, y = fit), data = df_preds) +
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = 'gray92') +
   geom_line(color = '#56B4E9') +
-  geom_point(size = 3.5)
+  geom_point(size 2)
 
 # try a gam with one per genome section represented
 #!# this is based on the age vs. otolith age graphs not any automatic selection
@@ -275,10 +276,10 @@ basic_summary$s.table
 par(mfrow = c(1, 1))
 plot(gam_model2, all.terms = TRUE)
 
-
 ### try a gam with one per 'smooth type' within the best CpG set
 
 # look at coefficients within 'best set' of elastic net, which ones didn't shrink?
+#!# save coefficients to run from elastic net script
 coef_impor <- names(coef.allCpG[which(coef.allCpG > 0),])
 CpG_impor <- testdf[,which(colnames(testdf) %in% coef_impor)]
 
@@ -312,6 +313,7 @@ ggplot(aes(x = RefAge, y = meanAge), data = means_ref) +
   geom_point(size = 2) +
   theme_minimal()
 
+testdf <- testdf %>% filter(Age < 20)
 #!# If we do this officially, smooth mean/sd to account for sample size better
 #!# should be similar to Jonathan's spline functions for the length/age key should work
 #!# or actually just exactly those
@@ -328,6 +330,7 @@ while (nrep < 101) {
   for (i in 1:length(unique(testdf$Age))) {
     row <- means_ref[which(means_ref$RefAge == unique(testdf$Age)[i]),]
     ages <- testdf %>% 
+      ungroup() %>% 
       dplyr::select(Age) %>% 
       filter(Age == unique(testdf$Age)[i])
     samp <- rnorm(length(ages$Age), mean = row$meanAge, sd = row$stddevAge)

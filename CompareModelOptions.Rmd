@@ -301,50 +301,68 @@ gam_model2 <- gam(Age ~ s(NC_047151.1.9880) +
                     s(NC_047168.1.480431) +
                     s(NC_047157.1.604941) +
                     s(NC_047161.1.22201614) +
-                    s(NC_047169.1.16885311),data = testdf, method = "REML")
+                    s(NC_047169.1.16885311),
+                  data = testdf, method = "REML")
 
 # look at linearity and smooth factors
-basic_summary <- summary(gam_model2)
+summary(gam_model2)
 # k values are below edf so I think that's okay
 gam.check(gam_model2)
 
 # look at edf values to see linear vs. nonlinear
 basic_summary$s.table
 
-## redo model with correct smooth factors based on edf values
+## redo model with correct smooth factors based on edf values,
+# and remove factors zeroed by smoothing
 gam_model2 <- gam(Age ~ NC_047151.1.9880 +
                     s(NC_047163.1.29069872) +
-                    s(NC_047153.1.32666785) +
+                    NC_047153.1.32666785 +
                     s(NC_047155.1.30745806) +
                     NC_047159.1.29166056 +
                     NC_047164.1.2171813 +
-                    s(NC_047174.1.21430655) +
+                    NC_047174.1.21430655 +
                     s(NC_047172.1.26303009) +
                     NC_047165.1.15408994 +
                     s(NC_047165.1.910853) +
                     s(NC_047167.1.11015458) +
-                    s(NC_047170.1.1470) +
+                    NC_047170.1.1470 +
                     s(NC_047171.1.15408463) +
                     s(NC_047171.1.25040373) +
-                    s(NC_047152.1.5986) +
-                    s(NC_047168.1.480431) +
+                    NC_047152.1.5986 +
+                    NC_047168.1.480431 +
                     s(NC_047157.1.604941) +
                     NC_047161.1.22201614 +
-                    s(NC_047169.1.16885311),data = testdf, method = "REML")
-
+                    NC_047169.1.16885311,
+                  data = testdf, method = "REML", select = T)
 summary(gam_model2)
 
+## redo model with correct smooth factors based on edf values
+gam_model2 <- gam(Age ~ s(NC_047163.1.29069872) +
+                    s(NC_047155.1.30745806) +
+                    NC_047159.1.29166056 +
+                    s(NC_047172.1.26303009) +
+                    NC_047165.1.15408994 +
+                    NC_047168.1.480431 +
+                    NC_047161.1.22201614 +
+                    NC_047169.1.16885311 - 1,
+                  data = testdf, method = "REML", select = T)
+
+summary(gam_model3)
+
 # try predictions just to see
-predictions2 = predict(gam_model,type = 'response',se = TRUE)
+predictions2 = predict(gam_model3,type = 'response',se = TRUE)
 
 df_preds = data.frame(testdf$Age, predictions2) %>%
   mutate(lower = fit - 1.96 * se.fit,
          upper = fit + 1.96 * se.fit)
 
+# calculate MAE
+median(abs(df_preds$testdf.Age - df_preds$fit))
+
 ggplot(aes(x = testdf.Age, y = fit), data = df_preds) +
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = 'gray92') +
   geom_line(color = '#56B4E9') +
-  geom_point(size = 3.5)+
+  geom_point(size = 2)+
   theme_minimal()
 ```
 

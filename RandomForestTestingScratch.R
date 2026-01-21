@@ -1,12 +1,15 @@
-### Random Forest Testing hooray!!
+### Random Forest Testing scratch - chaos code, trying lots of options
 ##load data
 load("MethylKitInput/allCpGs_MinimalMissing.rda")
 sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
 CpGRegion <- read.csv(file = "Output/BestCpG_RegionGroups.csv")
 
-CpGlist_best_Age4to15 <- read.csv(file = "Output/CpGList_LengthAge_Age4to15_121025.csv")
-CpGlist_best_Age16to29 <- read.csv(file = "Output/CpGList_LengthAge_Age4to29_121025.csv")
-
+CpGlist_best_4to15 <- read.csv(file = "Output/CpGList_LengthAge_Age4to15_121025.csv")
+CpGlist_best_4to15$Set <- "Age4to15"
+CpGlist_best_4to29 <- read.csv(file = "Output/CpGList_LengthAge_Age4to29_121025.csv")
+CpGlist_best_4to29$Set <- "Age4to29"
+CpGlist_best_old <- read.csv(file = "Output/CpGList_LengthAge.csv")
+CpGlist_best_old$Set <- "OldSites"
 #load libraries
 library(tidyverse)
 library(ranger)
