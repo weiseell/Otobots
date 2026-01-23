@@ -24,12 +24,9 @@ There are many sources of methylation variation among individuals in a populatio
 We've removed regions of the genome related to sex-determination, a putative inversion region, and mitochondrial and non-mapped regions to eliminate sources of bias within the genome (including CpGs that are related to sex-determination or inversion rather than age). Additionally, elastic net models do not accommodate missing data, so any CpG sites that are not represented in all sequenced individuals were removed.
 
 ```{r}
-# run with just ages 16-29, subset to Methyl 2025 samples
-CpGsMeta <- sexdata %>% left_join(allCpGs) %>% filter(Age >= 16)
-
 #remove CpGs with NAs for the model
-nas <- colSums(is.na(CpGsMeta))
-allCpGs1 <- CpGsMeta[,which(nas < 1)]
+nas <- colSums(is.na(allCpGs))
+allCpGs1 <- allCpGs[,which(nas < 1)]
 
 #remove non-mapped scaffold and mitochondrial data from data set
 allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NW",
@@ -44,71 +41,66 @@ allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047162.1",
                                     colnames(allCpGs1),perl = T)))]
 
 allCpGs1 <- allCpGs1 %>% dplyr::select(-filename)
-
 ```
 
 ## Prepping to Run Models
 We log age data prior to running the model, and the CpG selected is repeated 100 times with different training and testing sets. This was repeated with sex-separated clocks as well (glmnet R script) but it is shorted to just the full model here since that is what we ended up using.
 ```{r}
 #log age data
-sexdata <- sexdata %>% 
-  filter(Age >= 16)
+sexdata1 <- sexdata %>% 
+  filter(Age <= 20 & DataType == "Wild") %>% 
   mutate(LogAge = log(Age),LogLen = log(Length))
+
+# run with just ages 16-29, subset to Methyl 2025 samples
+CpGsMeta <- sexdata1 %>% left_join(allCpGs1) %>% filter(DataType == "Wild" & Age <= 20)
 ```
 
 ```{r}
 #create blank objects for storing outputs in loop
-modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 5))
-colnames(modelout) <- c("Train_cor","Test_cor","Train_MAE","Test_MAE","lambda.1se")
+modelout <- data.frame(matrix(data = NA,nrow = 1000, ncol = 5))
+colnames(modelout) <- c("rep","Train_cor","Test_cor","Train_MAE","Test_MAE","lambda.1se")
 CpGlist <- list()
 
-predout <- data.frame(indivname = sexdata$indivname,
-                      LogAge = sexdata$LogAge)
+predout <- data.frame(indivname = sexdata1$indivname,
+                      LogAge = sexdata1$LogAge)
 ```
 
 ## Run 100 Elastic Net Model Replicates
 ```{r}
 ##Loop for glmnet testing with all CpG sites ####
 i <- 1
-for (i in 1:100) {
-  #print(i)
+for (i in 1:1000) {
+  print(i)
   #set a different seed so different train/test and a separate model are constructed
   set.seed(Sys.time())
-  
   #randomly select individuals for testing
-  testpick <- sexdata %>% 
+  testpick <- CpGsMeta %>% 
     group_by(Age,ObsSex) %>% 
-    slice_sample(n = 1)
+    slice_sample(n = 1) %>% 
+    ungroup()
   
   #sort other individuals into training data
-  trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
-  
-  #select CpG sites for each group
-  testdat <- allCpGs1[which(allCpGs1$indivname %in% testpick$indivname),]
-  testdat <- full_join(testpick,testdat,by = "indivname")
-  
-  traindat <- allCpGs1[which(!(allCpGs1$indivname %in% testpick$indivname)),]
-  traindat <- full_join(trainpick,traindat,by = "indivname")
+  trainpick <- CpGsMeta[which(!(CpGsMeta$indivname %in% testpick$indivname)),]
   
   #select data and run glmnet to select sites
-  y <- as.matrix(traindat$LogAge)
-  x <- as.matrix(traindat[,-1:-9])
+  y <- as.matrix(trainpick$LogAge)
+  x <- as.matrix(dplyr::select(trainpick,starts_with("NC")))
   
-  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 40,grouped = F)
-  coef.allCpG <- as.matrix(coef(model1,s = "lambda.min"))
+  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 10,type.measure = "mae")
+  coef.allCpG <- as.matrix(coef(model1,s = "lambda.1se"))
   
   bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
   
   #predict testdat
-  ytest <- testdat$LogAge
-  xtest <- as.matrix(testdat[,-1:-9])
+  ytest <- testpick$LogAge
+  xtest <- as.matrix(dplyr::select(testpick,starts_with("NC")))
   
   #predict and correlate train data
-  pred_logage <- predict(model1,newx = x,type = "response",s = model1$lambda.min)
+  pred_logage <- predict(model1,newx = x,type = "response",s = model1$lambda.1se,type.measure = "mae")
   train_cor <- cor.test(y,pred_logage)
   
   #predict and correlate test data
-  pred_logage_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.min)
+  pred_logage_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.min,type.measure = "mae")
   test_cor <- cor.test(ytest,pred_logage_test)
   
   #uncertainty for train and test
@@ -129,10 +121,10 @@ for (i in 1:100) {
   #full model
   trainpred <- data.frame(indivname = trainpick$indivname,
                           LogAge = trainpick$LogAge,
-                          predage = pred_logage)
+                          predage = pred_logage[1:length(pred_logage)])
   testpred <- data.frame(indivname = testpick$indivname,
                           LogAge = testpick$LogAge,
-                          predage = pred_logage_test)
+                          predage = pred_logage_test[1:length(pred_logage_test)])
   predout_tmp <- rbind(trainpred,testpred)
   predout <- full_join(predout,predout_tmp, by = c("indivname","LogAge"))
 }
@@ -141,9 +133,11 @@ hist(modelout$Train_cor)
 hist(modelout$Test_cor)
 
 #concatenate all the best CpGs
-CpGlist_best <- CpGlist[[1]]
-for (i in 2:100) {
-  CpGlist_best <- c(CpGlist_best,CpGlist[[i]])
+CpGlist_best <- c()
+for (i in 1:1000) {
+  tmpCpG <- CpGlist[[i]]
+  names(tmpCpG) <- rep(i,times = length(tmpCpG))
+  CpGlist_best <- c(CpGlist_best,tmpCpG)
 }
 
 counting <- data.frame(CpGlist_best) %>% 
@@ -154,59 +148,66 @@ table(counting$n)
 
 top_CpG_group <- counting %>% 
   arrange(desc(n)) %>% 
-  filter(n > 20)
+  filter(n > 100)
+
+best_corrs <- modelout %>% 
+  mutate(rep=seq(from = 1, to = nrow(modelout)),ttdiff = abs(Train_MAE-Test_MAE)) %>% 
+  arrange(ttdiff) %>% 
+  slice_head(n=20)
+
+bestCpG = unique(CpGlist_best[which(names(CpGlist_best) %in% best_corrs$rep)])
+
+best_corrsCpG <- data.frame(CpGlist_best=bestCpG,type="Age")
+top_CpG_group$CpGlist_best %in% best_corrsCpG$CpGlist_best
+best_corrsCpG$CpGlist_best %in% top_CpG_group$CpGlist_best
+
+#!# keep best_corrs list
 ```
 
 ## Repeat Loop with Length
 ```{r}
 #create blank objects for storing outputs in loop
-modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 5))
-colnames(modelout) <- c("Train_cor","Test_cor","Train_MAE","Test_MAE","lambda.1se")
+modelout <- data.frame(matrix(data = NA,nrow = 1000, ncol = 6))
+colnames(modelout) <- c("rep","Train_cor","Test_cor","Train_MAE","Test_MAE","lambda.1se")
 CpGlist <- list()
 
-predout <- data.frame(indivname = sexdata$indivname,
-                      LogLen = sexdata$LogLen)
+predout <- data.frame(indivname = sexdata1$indivname,
+                      LogLen = sexdata1$LogLen)
 
 ##Loop for glmnet testing with all CpG sites ####
 i <- 1
-for (i in 1:100) {
+for (i in 1:1000) {
   #print(i)
   set.seed(Sys.time())
   
   #randomly select individuals for testing
-  testpick <- sexdata %>% 
+  testpick <- CpGsMeta %>% 
     group_by(Age,ObsSex) %>% 
-    slice_sample(n = 1)
+    slice_sample(n = 1) %>% 
+    ungroup()
   
   #sort other individuals into training data
-  trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
-  
-  #select CpG sites for each group
-  testdat <- allCpGs1[which(allCpGs1$indivname %in% testpick$indivname),]
-  testdat <- full_join(testpick,testdat,by = "indivname")
-  
-  traindat <- allCpGs1[which(!(allCpGs1$indivname %in% testpick$indivname)),]
-  traindat <- full_join(trainpick,traindat,by = "indivname")
+  trainpick <- CpGsMeta[which(!(CpGsMeta$indivname %in% testpick$indivname)),]
   
   #select data and run glmnet to select sites
-  y <- traindat$LogLen
-  x <- as.matrix(traindat[,-1:-6])
+  y <- trainpick$LogLen
+  x <- as.matrix(dplyr::select(trainpick,starts_with("NC")))
   
-  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 10)
-  coef.allCpG <- as.matrix(coef(model1,s = "lambda.min"))
+  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 10,type.measure = "mae")
+  coef.allCpG <- as.matrix(coef(model1,s = "lambda.1se"))
   
   bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
   
   #predict testdat
-  ytest <- testdat$LogLen
-  xtest <- as.matrix(testdat[,-1:-6])
+  ytest <- testpick$LogLen
+  xtest <- as.matrix(dplyr::select(testpick,starts_with("NC")))
   
   #predict and correlate train data
-  pred_LogLen <- predict(model1,newx = x,type = "response",s = model1$lambda.min)
+  pred_LogLen <- predict(model1,newx = x,type = "response",s = model1$lambda.1se,type.measure = "mae")
   train_cor <- cor.test(y,pred_LogLen)
   
   #predict and correlate test data
-  pred_LogLen_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.min)
+  pred_LogLen_test <- predict(model1,newx = xtest,type = "response",s = model1$lambda.1se,type.measure = "mae")
   test_cor <- cor.test(ytest,pred_LogLen_test)
   
   #uncertainty for train and test
@@ -214,14 +215,15 @@ for (i in 1:100) {
   test_MAE <- median(abs(exp(ytest) - exp(pred_LogLen_test[ ,1])))
   
   ##save outputs
-  modelout[i,5] <- model1$lambda.min
+  modelout[i,6] <- model1$lambda.min
+  modelout[i,1] <- i
   CpGlist[[i]] <- bestCpGnames
   
-  modelout[i,1] <- train_cor$estimate
-  modelout[i,2] <- test_cor$estimate
+  modelout[i,2] <- train_cor$estimate
+  modelout[i,3] <- test_cor$estimate
   
-  modelout[i,3] <- train_MAE
-  modelout[i,4] <- test_MAE
+  modelout[i,4] <- train_MAE
+  modelout[i,5] <- test_MAE
   
   #save predictions
   #full model
@@ -239,9 +241,11 @@ hist(modelout$Train_cor)
 hist(modelout$Test_cor)
 
 #concatenate all the best CpGs
-CpGlist_best_len <- CpGlist[[1]]
-for (i in 2:100) {
-  CpGlist_best_len <- c(CpGlist_best_len,CpGlist[[i]])
+CpGlist_best_len <- c()
+for (i in 1:1000) {
+  tmpCpG <- CpGlist[[i]]
+  names(tmpCpG) <- rep(i,times = length(tmpCpG))
+  CpGlist_best_len <- c(CpGlist_best_len,tmpCpG)
 }
 
 counting <- data.frame(CpGlist_best_len) %>% 
@@ -250,17 +254,29 @@ counting <- data.frame(CpGlist_best_len) %>%
   arrange(desc(n))
 table(counting$n)
 
-top_CpG_group_len <- counting %>% 
+top_CpG_group <- counting %>% 
   arrange(desc(n)) %>% 
-  filter(n > 20) %>% 
-  rename(CpGlist_best = CpGlist_best_len)
+  filter(n > 100)
+
+best_corrs_len <- modelout %>% 
+  mutate(rep=seq(from = 1, to = nrow(modelout)),ttdiff = abs(Train_MAE-Test_MAE)) %>% 
+  arrange(ttdiff) %>% 
+  slice_head(n=20)
+
+bestCpG_len = unique(CpGlist_best_len[which(names(CpGlist_best_len) %in% best_corrs_len$rep)])
+
+best_corrsCpG_len <- data.frame(CpGlist_best=bestCpG_len,type="Length")
+top_CpG_group$CpGlist_best_len %in% best_corrsCpG_len$CpGlist_best_len
+best_corrsCpG_len$CpGlist_best_len %in% top_CpG_group$CpGlist_best_len
+
+#!# keep best_corrs list
 ```
 
 ## Concatenate the best CpGs across replicates
 ```{r}
-CpGlist_best_comb <- unique(rbind(top_CpG_group,top_CpG_group_len))
+CpGlist_best_comb <- unique(rbind(best_corrsCpG,best_corrsCpG_len))
 
-write.csv(CpGlist_best_comb,file = "Output/CpGList_LengthAge_addAge1629.csv",row.names = F)
+write.csv(CpGlist_best_comb,file = "Output/CpGList_LengthAge_MAEBestModels.csv",row.names = F)
 ```
 
 ## Figures
@@ -278,7 +294,7 @@ predout %>%
     theme_classic(base_size = 18)
 
 ## quick look at lambda values, correlation levels and MAE values across replicates
-modelout[,1:5] %>% 
+modelout[,2:6] %>% 
   gather(key="stat",value = "value") %>% 
   ggplot(aes(x=stat,y=value))+
   geom_boxplot()+

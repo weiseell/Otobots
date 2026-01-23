@@ -9,15 +9,12 @@ sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
 CpGRegion <- read.csv(file = "Output/BestCpG_RegionGroups.csv")
 
 ###run clock with best CpG sites
-CpGlist_best_old <- read.csv(file = "Output/CpGList_LengthAge.csv")
-CpGlist_best_old$Set <- "OldSites"
-CpGlist_best_old <- CpGlist_best_old %>% dplyr::select(CpGlist_best,n,Set)
 CpGlist_best_4to15 <- read.csv(file = "Output/CpGList_LengthAge_Age4to15_121025.csv")
 CpGlist_best_4to15$Set <- "Age4to15"
 CpGlist_best_4to19 <- read.csv(file = "Output/CpGList_LengthAge_Age4to19_121025.csv")
 CpGlist_best_4to19$Set <- "Age4to19"
 CpGlist_best_4to29 <- read.csv(file = "Output/CpGList_LengthAge_Age4to29_121025.csv")
-CpGlist_best_4to29$Set <- "Age4to29"
+CpGlist_best_4to29$Set <- "Age4to29"ssssss
 CpGlist_all <- rbind(CpGlist_best_4to15,CpGlist_best_4to29)
 
 # plot missing data levels and subset to minimize missing data
@@ -230,6 +227,29 @@ summary(gam_model1)
 gam.check(gam_model1, k.rep = 1000)
 plot.gam(gam_model1)
 
+gam_model1 <- gam(Age ~ s(NC_047151.1.10785,bs = "cr") +
+                    s(NC_047151.1.11792,bs = "cr") +
+                    s(NC_047151.1.13802,bs = "cr") +
+                    s(NC_047151.1.9880,bs = "cr") +
+                    s(NC_047152.1.5986,bs = "cr") +
+                    s(NC_047153.1.32669800,bs = "cr") +
+                    s(NC_047155.1.30745806,bs = "cr") +
+                    s(NC_047155.1.30745807,bs = "cr") +
+                    NC_047155.1.30747359 +
+                    s(NC_047155.1.30748169,bs = "cr") +
+                    s(NC_047155.1.30750614,bs = "cr") +
+                    s(NC_047155.1.30751619,bs = "cr") +
+                    s(NC_047159.1.29170063,bs = "cr") +
+                    s(NC_047169.1.16885311,bs = "cr") +
+                    s(NC_047172.1.26293714,bs = "cr") +
+                    s(NC_047172.1.26293982,bs = "cr") +
+                    s(NC_047172.1.26294006,bs = "cr") +
+                    s(NC_047172.1.26303009,bs = "cr") +
+                    NC_047172.1.26305360 +
+                    s(NC_047172.1.26307361,bs = "cr") +
+                    NC_047174.1.21431948 -1,data = reduceddf)
+
+summary(gam_model1)
 # these predictions look WAY too nice, bias from overfit probably lol
 predictions = predict(gam_model1,type = 'response',se = TRUE)
 
@@ -240,7 +260,7 @@ df_preds = data.frame(reduceddf$Age, predictions) %>%
 ggplot(aes(x = reduceddf.Age, y = fit), data = df_preds) +
   geom_ribbon(aes(ymin = lower, ymax = upper), fill = 'gray92') +
   geom_line(color = '#56B4E9') +
-  geom_point(size 2)
+  geom_point(size = 2)
 
 # try a gam with one per genome section represented
 #!# this is based on the age vs. otolith age graphs not any automatic selection
@@ -374,6 +394,34 @@ reppreds %>%
   geom_abline(slope = 1,intercept = 0) +
   theme_classic()+
   ylim(0, 30) + xlim(0, 30)
+
+
+#### try a version of the model where we flip CpGs and Age between predictors and factors
+### based on https://github.com/marinegenomicslab/FloridaBass_EpigeneticAgeing/blob/main/Scripts/BAYES_GLM.r
+library(rstanarm)
+options(mc.cores = parallel::detectCores())
+
+# our data is already in percent methyl (odds ratio) format so this should run
+# without too much editing
+# try a test with the elastic net selected sites, although this 
+colnames(testdf)
+testdf$ObsSex <- as.factor(testdf$ObsSex)
+testdf$indivname <- as.factor(testdf$indivname)
+
+for (i in vector) {
+  
+}
+
+# switch from percent to ratio and run a bayes test
+testdf$NC_047151.1.10551 <- testdf$NC_047151.1.10551/100
+bmodel <- stan_glmer(NC_047151.1.10551 ~ Age + (1 | indivname), 
+           data = testdf, family = binomial(link = "logit"), cores = 4, iter=4000)
+
+
+
+
+
+
 
 
 

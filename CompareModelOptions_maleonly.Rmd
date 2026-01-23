@@ -1,5 +1,5 @@
 ---
-title: "ModelComparisonOptions"
+title: "ModelComparisonOptions_MaleOnly"
 author: "Ellie Weise"
 date: "2026-01-20"
 output: html_document
@@ -35,11 +35,12 @@ sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
 ### Preparing data for elastic net
 ```{r}
 ## Data prep ####
-set.seed(234578)
+#set.seed(234578)
+set.seed(2345)
 # subset to age 4-19 wild data
 # get rid of sparse data issue for now as well
 sexdata <- sexdata %>% 
-  filter(DataType == "Wild")
+  filter(DataType == "Wild" & ObsSex == 1 & Age < 20)
 
 #running a glmnet with all selected sites
 #CpGlist_all <- CpGlist_all %>% filter(ModelType == "Age")
@@ -60,9 +61,8 @@ sexdata <- sexdata %>%
 ```{r}
 #randomly select individuals for testing
 testpick <- sexdata %>% 
-  group_by(Age,ObsSex) %>% 
-  slice_sample(n = 1) %>% 
-  filter(Age <= 23)
+  group_by(Age) %>% 
+  slice_sample(n = 1)
 
 #sort other individuals into training data
 trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
@@ -145,7 +145,7 @@ ggplot(res_comb_all,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = ty
   xlab("Otolith Age (years)") +
   ylab("Molecular clock Age (years)") +
   ggtitle("Correlation Between Otolith and Molecular Clock Age") +
-  scale_color_manual(values = c(wes_palette("IsleofDogs1")[1],wes_palette("IsleofDogs1")[3]))+
+  scale_color_manual(values = c(wes_palette("IsleofDogs1")[1]))+
   theme_classic(base_size = 18) + 
   theme(legend.position = "none")
 ```
@@ -161,7 +161,7 @@ So this is an option Daniel and I talked through, trying a regular linear model 
 # for initial model, just to see if it works before adding more problems
 sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
 RF_CpGs <- sexdata %>% 
-  filter(DataType == "Wild")
+  filter(DataType == "Wild" & ObsSex == 1 & Age < 21)
 
 tmpCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_all$CpG)]
 CpGsbest_allsets <- data.frame(indivname=allCpGs1$indivname,tmpCpGs)
@@ -184,11 +184,12 @@ cor_age4to19 <- testdf %>%
 #!# correlations go up as the older individuals are excluded
 #!# improvements happen as 20+, 16+ and 15+ individuals are removed
 #!# is this otolith error increasing or methyl patterns getting messier? Probably both
+
 ```
 
 ```{r}
 ## grab CpGs with decent linear correlation
-testdf_cor0.5 <- testdf[,colnames(testdf) %in% cor_age4to19$CpG[which(cor_age4to19$CorAge4to19 > 0.5)]]
+testdf_cor0.5 <- testdf[,colnames(testdf) %in% cor_age4to19$CpG[which(cor_age4to19$CorAge4to19 > 0.6)]]
 #!# upping to 0.6 cor minimum eliminated the perfectly linear covariates
 testdf_cor0.5 <- data.frame(Age=testdf$Age,testdf_cor0.5)
 testdf_cor0.5 <- testdf_cor0.5
@@ -212,7 +213,8 @@ ols_vif_tol(model) %>%
 # with cor < 0.6 eliminated, colinearity is below 10?
 # not what I was expecting but I will take it
 # eliminate colinear factors one by one until they are all less than 10
-reduceddf <- reduceddf[,which(colnames(reduceddf)!="NC_047172.1.26308364")]
+#reduceddf <- reduceddf[,which(colnames(reduceddf)!="NC_047172.1.26308364" 
+#                              & colnames(reduceddf)!="NC_047151.1.10785")]
 
 preds <- predict.lm(model)
 plot(testdf_cor0.5$Age,preds)
@@ -234,7 +236,7 @@ data.frame(OtoAge=testdf_cor0.5$Age,EpiAge=preds) %>%
   ggplot(aes(x = OtoAge,y = EpiAge))+
   geom_point(size = 3.5)+
   geom_jitter(height = 0,width = 0.1)+
-  ylim(0, 30) + xlim(0, 30) +
+  ylim(0, 22) + xlim(0, 22) +
   geom_abline(slope = 1,intercept = 0) +
   xlab("Otolith Age (years)") +
   ylab("Molecular clock Age (years)") +
@@ -248,42 +250,12 @@ print(MAE)
 # Attempts at Additive Models
 So the big struggle I'm having here is with how to find which factors are best suited to be included in the additive model. I did graph percent methylation versus both otolith age and length, but even if I do one per CpG 'region' that we identified it's still about 13 factors. I did still try that though and did a little bit of messing around with the edf values and linearity tests just to practice, along with a few randomly selected single CpG ones.
 
-### Single variable model test
-```{r}
-library(mgcv)
-CpGs <- as.matrix(testdf %>% dplyr::select(starts_with("NC")))
-Ages <- testdf$Age
-sigs <- as.data.frame(matrix(data = NA, nrow = ncol(CpGs), ncol = 4))
-colnames(sigs) <- c("edf","Ref.df","F","p-value")
-
-for (i in 1:ncol(CpGs)) {
-  gam_model <- gam(Ages ~ s(CpGs[,i]),select=T)
-  sigs[i,] <- summary(gam_model)[["s.table"]]
-  rownames(sigs)[i] <- colnames(CpGs)[i]
-}
-
-sigs1 <- sigs %>% 
-  filter(`p-value` <= 0.05)
-
-predictions = predict(gam_model,type = 'response',se = TRUE)
-
-df_preds = data.frame(testdf$Age, predictions) %>%
-  mutate(lower = fit - 1.96 * se.fit,
-         upper = fit + 1.96 * se.fit)
-
-ggplot(aes(x = testdf.Age, y = fit), data = df_preds) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), fill = 'gray92') +
-  geom_line(color = '#56B4E9') +
-  geom_point(size = 3.5)+
-  theme_minimal()
-```
-
-
 ### Test with One CpG per region (too many but again just trying some things)
 These factors were grabbed based on the graphs, which I feel kind of sketchy about, but I just wanted to get an idea of what these could look like after adding more factors.
 
 ```{r}
 # set options as generic 's' to see what the fit types should be
+library(mgcv)
 gam_model2 <- gam(Age ~ s(NC_047151.1.9880) +
                     s(NC_047151.1.10785) +
                     s(NC_047163.1.29069872) +
@@ -323,45 +295,48 @@ gam.check(gam_model2)
 
 ## redo model with correct smooth factors based on edf values,
 # and remove factors zeroed by smoothing
-gam_model2 <- gam(Age ~ NC_047151.1.9880 +
+gam_model2 <- gam(Age ~ s(NC_047151.1.9880) +
                     NC_047151.1.10785 +
-                    s(NC_047163.1.29069872) +
+                    NC_047163.1.29069872 +
                     NC_047153.1.32675405 +
-                    s(NC_047153.1.32666785) +
+                    NC_047153.1.32666785 +
                     s(NC_047155.1.30745806) +
                     NC_047155.1.30751619 +
                     NC_047159.1.29166056 +
                     NC_047159.1.29159906 +
                     NC_047164.1.2171813 +
                     s(NC_047174.1.21435010) +
-                    NC_047174.1.21430655 +
-                    s(NC_047172.1.26303009) +
-                    s(NC_047172.1.26307361) +
-                    NC_047172.1.26308364 +
+                    s(NC_047174.1.21430655) +
+                    NC_047172.1.26303009 +
+                    NC_047172.1.26307361 +
+                    s(NC_047172.1.26308364) +
                     NC_047165.1.15408994 +
-                    s(NC_047165.1.910853) +
-                    s(NC_047167.1.11015458) +
-                    s(NC_047170.1.1470) +
+                    NC_047165.1.910853 +
+                    NC_047167.1.11015458 +
+                    NC_047170.1.1470 +
                     NC_047170.1.1540 +
-                    s(NC_047171.1.15408463) +
-                    s(NC_047171.1.25040373) +
-                    s(NC_047152.1.5986) +
-                    NC_047168.1.480431 +
-                    s(NC_047157.1.604941) +
-                    NC_047161.1.22201614 +
-                    s(NC_047169.1.16885311),
+                    NC_047171.1.15408463 +
+                    NC_047171.1.25040373 +
+                    NC_047152.1.5986 +
+                    s(NC_047168.1.480431) +
+                    NC_047157.1.604941 +
+                    s(NC_047161.1.22201614) +
+                    NC_047169.1.16885311,
                   data = testdf, method = "REML")
 summary(gam_model2)
 
-## redo model with correct smooth factors based on edf values
-gam_model3 <- gam(Age ~ NC_047153.1.32675405 +
+# best model with age 4-29
+gam_model3 <- gam(Age ~ NC_047151.1.9880 +
                     s(NC_047172.1.26303009) +
+                    NC_047165.1.15408994 +
+                    s(NC_047152.1.5986) +
                     NC_047168.1.480431 +
                     NC_047161.1.22201614 +
                     s(NC_047169.1.16885311) - 1,
-                  data = testdf, method = "REML")
+                  data = testdf, method = "REML", select = T)
 
 # best model with age < 20
+## run this one for sex-separated
 gam_model3 <- gam(Age ~ s(NC_047163.1.29069872) +
                     s(NC_047155.1.30745806) +
                     NC_047159.1.29166056 +
@@ -371,15 +346,6 @@ gam_model3 <- gam(Age ~ s(NC_047163.1.29069872) +
                     NC_047161.1.22201614 +
                     NC_047169.1.16885311 - 1,
                   data = testdf, method = "REML", select = T)
-
-gam_model3 <- gam(Age ~ NC_047151.1.9880 +
-                    s(NC_047172.1.26303009) +
-                    NC_047165.1.15408994 +
-                    s(NC_047152.1.5986) +
-                    NC_047168.1.480431 +
-                    NC_047161.1.22201614 +
-                    s(NC_047169.1.16885311) - 1,
-                  data = testdf, method = "REML")
 
 summary(gam_model3)
 
@@ -394,6 +360,7 @@ df_preds = data.frame(indivname=testdf$indivname,testdf$Age, predictions2) %>%
 # calculate MAE
 median(abs(df_preds$testdf.Age - df_preds$fit))
 cor.test(df_preds$testdf.Age, df_preds$fit)
+
 ggplot(aes(x = testdf.Age, y = fit,color = as.factor(ObsSex)), data = df_preds) +
   geom_point(size = 2)+
   ylim(0, 30) + xlim(0, 30) +
@@ -401,7 +368,7 @@ ggplot(aes(x = testdf.Age, y = fit,color = as.factor(ObsSex)), data = df_preds) 
   xlab("Otolith Age (years)") +
   ylab("Molecular clock Age (years)") +
   ggtitle("GAM Predictions Between Otolith and Molecular Clock Age") +
-  scale_color_manual(values = c(wes_palette("IsleofDogs1")[1],wes_palette("IsleofDogs1")[3]))+
+  scale_color_manual(values = c(wes_palette("IsleofDogs1")[1]))+
   theme_classic(base_size = 18) + 
   theme_minimal()
 
