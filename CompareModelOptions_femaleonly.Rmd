@@ -40,7 +40,7 @@ set.seed(2345)
 # subset to age 4-19 wild data
 # get rid of sparse data issue for now as well
 sexdata <- sexdata %>% 
-  filter(DataType == "Wild" & ObsSex == 2 & Age < 20)
+  filter(DataType == "Wild" & ObsSex == 2 & Age < 21)
 
 #running a glmnet with all selected sites
 #CpGlist_all <- CpGlist_all %>% filter(ModelType == "Age")
@@ -134,13 +134,15 @@ test_res <- data.frame(indivname=testdat$indivname,
                        type="Test",
                        sampletype=testdat$DataType)
 res_comb_all <- rbind(train_res,test_res)
-res_comb_all <- res_comb_all %>% mutate(Age=exp(LogAge),EpiAge=exp(Epi_LogAge))
-res_comb_all$ModelName <- "Combined"
+res_comb_all <- res_comb_all %>% mutate(Age=exp(LogAge),EpiAge=exp(Epi_LogAge)) %>% 
+  dplyr::select(-LogAge,-Epi_LogAge,-sampletype)
+res_comb_all$SampleSet <- "Female-Only"
+res_comb_all$ModelType <- "Elastic Net"
+
 ggplot(res_comb_all,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = type))+
-  facet_grid(~ModelName) +
   geom_point(size = 3.5)+
   geom_jitter(height = 0,width = 0.1)+
-  ylim(0, 30) + xlim(0, 30) +
+  ylim(0, 22) + xlim(0, 22) +
   geom_abline(slope = 1,intercept = 0) +
   xlab("Otolith Age (years)") +
   ylab("Molecular clock Age (years)") +
@@ -161,7 +163,7 @@ So this is an option Daniel and I talked through, trying a regular linear model 
 # for initial model, just to see if it works before adding more problems
 sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
 RF_CpGs <- sexdata %>% 
-  filter(DataType == "Wild" & ObsSex == 2 & Age < 21)
+  filter(DataType == "Wild" & ObsSex == 2 & Age <= 21)
 
 tmpCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_all$CpG)]
 CpGsbest_allsets <- data.frame(indivname=allCpGs1$indivname,tmpCpGs)
@@ -222,6 +224,18 @@ cor.test(testdf_cor0.5$Age,preds)
 ## Age 4-12 has cor > 0.99 and good predictions
 ## Age 4-29 has cor~0.85 and underestimates the 20+ group but that 
 ## could very well be a sample size artifact
+
+## plot CpG relationships and predictions
+glm_res <- data.frame(indivname=testdf$indivname,
+                       ObsSex=testdf$ObsSex,
+                       Length=testdf$Length,
+                       Age=testdf$Age,
+                       EpiAge=preds,
+                       type="Test")
+
+glm_res$SampleSet <- "Female-Only"
+glm_res$ModelType <- "GLM"
+
 
 ## plot CpG relationships and predictions
 reduceddf %>% 
@@ -357,13 +371,23 @@ df_preds = data.frame(indivname=testdf$indivname,testdf$Age, predictions2) %>%
          upper = fit + 1.96 * se.fit) %>% 
   left_join(sexdata)
 
+# save data in same
+gam_res <- data.frame(indivname=testdf$indivname,
+                       ObsSex=testdf$ObsSex,
+                       Length=testdf$Length,
+                       Age=testdf$Age,
+                       EpiAge=predictions2$fit,
+                       type="Test")
+
+gam_res$SampleSet <- "Female-Only"
+gam_res$ModelType <- "GAM"
+
 # calculate MAE
 median(abs(df_preds$testdf.Age - df_preds$fit))
-cor.test(df_preds$testdf.Age, df_preds$fit)
 
 ggplot(aes(x = testdf.Age, y = fit,color = as.factor(ObsSex)), data = df_preds) +
   geom_point(size = 2)+
-  ylim(0, 30) + xlim(0, 30) +
+  ylim(0, 22) + xlim(0, 22) +
   geom_abline(slope = 1,intercept = 0)+
   xlab("Otolith Age (years)") +
   ylab("Molecular clock Age (years)") +
@@ -375,6 +399,12 @@ ggplot(aes(x = testdf.Age, y = fit,color = as.factor(ObsSex)), data = df_preds) 
 
 ```
 
+
+```{r}
+# save predictions for figures
+preds_comb <- rbind(res_comb_all,glm_res,gam_res)
+write.csv(preds_comb,file = "PredsFemaleOnly_BestModels.csv",quote = F,row.names = F,append = F)
+```
 
 
 
