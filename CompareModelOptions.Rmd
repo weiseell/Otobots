@@ -169,55 +169,35 @@ tmpCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_all$CpG)]
 CpGsbest_allsets <- data.frame(indivname=allCpGs1$indivname,tmpCpGs)
 
 testdf <- left_join(RF_CpGs,CpGsbest_allsets)
-
-# run cor.test for each CpG with age and with length
-cor_age4to19 <- testdf %>% 
-  pivot_longer(cols = starts_with("NC"),
-               names_to = "CpG",
-               values_to = "PercMethyl") %>% 
-  group_by(CpG) %>% 
-  summarise(CorAge4to19=cor.test(x=Age,y=PercMethyl)[["estimate"]],
-            CorAge4to19_LCI=cor.test(x=Age,y=PercMethyl)[["conf.int"]][1],
-            CorAge4to19_HCI=cor.test(x=Age,y=PercMethyl)[["conf.int"]][2],
-            CorLength4to19=cor.test(x=Length,y=PercMethyl)[["estimate"]],
-            CorLength4to19_LCI=cor.test(x=Length,y=PercMethyl)[["conf.int"]][1],
-            CorLength4to19_HCI=cor.test(x=Length,y=PercMethyl)[["conf.int"]][2])
-
-#!# correlations go up as the older individuals are excluded
-#!# improvements happen as 20+, 16+ and 15+ individuals are removed
-#!# is this otolith error increasing or methyl patterns getting messier? Probably both
 ```
 
 ```{r}
-## grab CpGs with decent linear correlation
-names <- cor_age4to19$CpG[which(cor_age4to19$CorAge4to19 > 0.6)]
-testdf_cor0.5 <- testdf[,colnames(testdf) %in% names] 
-#!# upping to 0.6 cor minimum eliminated the perfectly linear covariates
-testdf_cor0.5 <- data.frame(Age=testdf$Age,testdf_cor0.5)
-testdf_cor0.5 <- testdf_cor0.5
-
 ## run a basic linear model
-model <- lm(Age~.,data = testdf_cor0.5)
+testdf1 <- testdf %>% dplyr::select(-indivname,-ObsSex,-Length,-DataType)
+model <- lm(Age~.,data = testdf1)
 
 # looking for perfectly colinear variables
 ld.vars <- attributes(alias(model)$Complete)$dimnames[[1]]
 
-reduceddf <- testdf_cor0.5[,which(!(colnames(testdf_cor0.5) %in% ld.vars))]
+reduceddf <- testdf1[,which(!(colnames(testdf1) %in% ld.vars))]
 
 # rerun model without perfect colinear vars if needed
 model <- lm(Age~.,data = reduceddf)
 
 ## get VIF colinearity tests
 library(olsrr)
+
 ols_vif_tol(model) %>% 
   arrange(desc(VIF))
+
 
 # with cor < 0.6 eliminated, colinearity is below 10?
 # not what I was expecting but I will take it
 # eliminate colinear factors one by one until they are all less than 10
-reduceddf <- reduceddf[,which(colnames(reduceddf)!="NC_047153.1.32666785" &
-                                colnames(reduceddf)!="NC_047151.1.9078" &
-                                colnames(reduceddf)!="NC_047163.1.29069872")]
+reduceddf <- reduceddf[,which(colnames(reduceddf)!="NC_047151.1.9078" &
+                                colnames(reduceddf)!="NC_047153.1.32666785" &
+                                colnames(reduceddf)!="NC_047165.1.15411811")]
+
 
 preds <- predict.lm(model)
 plot(testdf_cor0.5$Age,preds)
@@ -266,6 +246,9 @@ So the big struggle I'm having here is with how to find which factors are best s
 ### Single variable model test
 ```{r}
 library(mgcv)
+
+
+
 CpGs <- as.matrix(testdf %>% dplyr::select(starts_with("NC")))
 Ages <- testdf$Age
 sigs <- as.data.frame(matrix(data = NA, nrow = ncol(CpGs), ncol = 4))
