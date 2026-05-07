@@ -18,13 +18,11 @@ library(MASS)
 library(wesanderson)
 library(ggforce)
 ###run clock with best CpG sites
-#CpGlist_all <- read.csv(file = "Output/CpGList_LengthAge_MAEBestModels.csv")
 CpGlist_best_4to15 <- read.csv(file = "Output/CpGList_LengthAge_Age4to15_121025.csv")
 CpGlist_best_4to15$Set <- "Age4to15"
 CpGlist_best_4to29 <- read.csv(file = "Output/CpGList_LengthAge_Age4to29_121025.csv")
 CpGlist_best_4to29$Set <- "Age4to29"
-CpGlist_all <- rbind(CpGlist_best_4to15)
-#CpGlist_all <- CpGlist_best_old
+CpGlist_all <- rbind(CpGlist_best_4to15,CpGlist_best_4to29)
 ##load data
 # if doing clock from scratch
 load("MethylKitInput/allCpGs_MinimalMissing.rda")
@@ -35,11 +33,11 @@ sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
 ### Preparing data for elastic net
 ```{r}
 ## Data prep ####
-set.seed(234578)
+set.seed(2345678)
 # subset to age 4-19 wild data
 # get rid of sparse data issue for now as well
 sexdata <- sexdata %>% 
-  filter(DataType == "Wild" & Age <= 15)
+  filter(DataType == "Wild")
 
 #running a glmnet with all selected sites
 #CpGlist_all <- CpGlist_all %>% filter(ModelType == "Age")
@@ -53,6 +51,7 @@ bestCpGs <- cbind(indivname=allCpGs1$indivname,bestCpGs)
 #log age data
 sexdata <- sexdata %>% 
   mutate(LogAge = log(Age),LogLen = log(Length))
+testdf <- full_join(sexdata,bestCpGs)
 ```
 
 
@@ -61,8 +60,7 @@ sexdata <- sexdata %>%
 #randomly select individuals for testing
 testpick <- sexdata %>% 
   group_by(Age,ObsSex) %>% 
-  slice_sample(n = 1) %>% 
-  filter(Age <= 15)
+  slice_sample(n = 1)
 
 #sort other individuals into training data
 trainpick <- sexdata[which(!(sexdata$indivname %in% testpick$indivname)),]
@@ -142,7 +140,7 @@ res_comb_all$ModelType <- "Elastic Net"
 ggplot(res_comb_all,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = type))+
   geom_point(size = 3.5)+
   geom_jitter(height = 0,width = 0.1)+
-  ylim(0, 15) + xlim(0, 15) +
+  ylim(0, 30) + xlim(0, 30) +
   geom_abline(slope = 1,intercept = 0) +
   xlab("Otolith Age (years)") +
   ylab("Molecular clock Age (years)") +
@@ -154,256 +152,312 @@ ggplot(res_comb_all,aes(x = Age,y = EpiAge,color=as.character(ObsSex),shape = ty
 
 I've also tried this option with male and female separated model options, but since we're comparing overall methods I'm going to try these other options with the full data set first and then try it with male and female separated clocks once I have a better handle on the models. I also removed the hatchery data for now, it should help with the lack of 20+ age data, but they are all female and the age 23s look a little different from the wild data points around the same age, and I don't know if that's due to environmental difference or otolith error. Either way seems like a 'next problem' sort of thing.
 
-# Linear Model with correlated factors
-So this is an option Daniel and I talked through, trying a regular linear model with factors from the pre-selected CpGs that have high linear correlation with otolith age. Overall, I ended up with pretty similar predictions and MAE to elastic net, but it looks like it doesn't have the same issue with overestimating young individuals and underestimating older individuals.
-
-```{r}
-# subset to just wild data  for testing
-# goal is to prevent low sample size and environmental bias
-# for initial model, just to see if it works before adding more problems
-sexdata <- read.csv("Input/MethylWild_Sex_AgeData.csv")
-RF_CpGs <- sexdata %>% 
-  filter(DataType == "Wild" & Age <= 15)
-
-tmpCpGs <- allCpGs1[,which(colnames(allCpGs1) %in% CpGlist_all$CpG)]
-CpGsbest_allsets <- data.frame(indivname=allCpGs1$indivname,tmpCpGs)
-
-testdf <- left_join(RF_CpGs,CpGsbest_allsets)
-```
-
-```{r}
-## run a basic linear model
-testdf1 <- testdf %>% dplyr::select(-indivname,-ObsSex,-Length,-DataType)
-model <- lm(Age~.,data = testdf1)
-
-# looking for perfectly colinear variables
-ld.vars <- attributes(alias(model)$Complete)$dimnames[[1]]
-
-reduceddf <- testdf1[,which(!(colnames(testdf1) %in% ld.vars))]
-
-# rerun model without perfect colinear vars if needed
-model <- lm(Age~.,data = reduceddf)
-
-## get VIF colinearity tests
-library(olsrr)
-
-ols_vif_tol(model) %>% 
-  arrange(desc(VIF))
-
-
-# with cor < 0.6 eliminated, colinearity is below 10?
-# not what I was expecting but I will take it
-# eliminate colinear factors one by one until they are all less than 10
-reduceddf <- reduceddf[,which(colnames(reduceddf)!="NC_047151.1.9078" &
-                                colnames(reduceddf)!="NC_047153.1.32666785" &
-                                colnames(reduceddf)!="NC_047165.1.15411811")]
-
-
-preds <- predict.lm(model)
-plot(testdf_cor0.5$Age,preds)
-cor.test(testdf_cor0.5$Age,preds)
-## Age 4-12 has cor > 0.99 and good predictions
-## Age 4-29 has cor~0.85 and underestimates the 20+ group but that 
-## could very well be a sample size artifact
-
-## plot CpG relationships and predictions
-glm_res <- data.frame(indivname=testdf$indivname,
-                       ObsSex=testdf$ObsSex,
-                       Length=testdf$Length,
-                       Age=testdf$Age,
-                       EpiAge=preds,
-                       type="Test")
-
-glm_res$SampleSet <- "Combined"
-glm_res$ModelType <- "GLM"
-
-reduceddf %>% 
-  pivot_longer(cols = starts_with("NC"),
-               names_to = "CpG",
-               values_to = "PercMethyl") %>% 
-  ggplot(aes(x=Age,y=PercMethyl))+
-    geom_point()+
-    facet_wrap(~CpG,scales = "free_y")
-
-data.frame(OtoAge=testdf_cor0.5$Age,EpiAge=preds) %>% 
-  ggplot(aes(x = OtoAge,y = EpiAge))+
-  geom_point(size = 3.5)+
-  geom_jitter(height = 0,width = 0.1)+
-  ylim(0, 17) + xlim(0, 17) +
-  geom_abline(slope = 1,intercept = 0) +
-  xlab("Otolith Age (years)") +
-  ylab("Molecular clock Age (years)") +
-  theme_classic(base_size = 18) + 
-  theme(legend.position = "none")
-
-MAE = median(abs(preds - testdf_cor0.5$Age))
-print(MAE)
-```
-
 # Attempts at Additive Models
 So the big struggle I'm having here is with how to find which factors are best suited to be included in the additive model. I did graph percent methylation versus both otolith age and length, but even if I do one per CpG 'region' that we identified it's still about 13 factors. I did still try that though and did a little bit of messing around with the edf values and linearity tests just to practice, along with a few randomly selected single CpG ones.
-
-### Single variable model test
-```{r}
-library(mgcv)
-
-
-
-CpGs <- as.matrix(testdf %>% dplyr::select(starts_with("NC")))
-Ages <- testdf$Age
-sigs <- as.data.frame(matrix(data = NA, nrow = ncol(CpGs), ncol = 4))
-colnames(sigs) <- c("edf","Ref.df","F","p-value")
-
-for (i in 1:ncol(CpGs)) {
-  gam_model <- gam(Ages ~ s(CpGs[,i]),select=T)
-  sigs[i,] <- summary(gam_model)[["s.table"]]
-  rownames(sigs)[i] <- colnames(CpGs)[i]
-}
-
-sigs1 <- sigs %>% 
-  filter(`p-value` <= 0.05)
-
-predictions = predict(gam_model,type = 'response',se = TRUE)
-
-df_preds = data.frame(testdf$Age, predictions) %>%
-  mutate(lower = fit - 1.96 * se.fit,
-         upper = fit + 1.96 * se.fit)
-
-ggplot(aes(x = testdf.Age, y = fit), data = df_preds) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), fill = 'gray92') +
-  geom_line(color = '#56B4E9') +
-  geom_point(size = 3.5)+
-  theme_minimal()
-```
-
 
 ### Test with One CpG per region (too many but again just trying some things)
 These factors were grabbed based on the graphs, which I feel kind of sketchy about, but I just wanted to get an idea of what these could look like after adding more factors.
 
+
+
 ```{r}
-# set options as generic 's' to see what the fit types should be
-gam_model2 <- gam(Age ~ s(NC_047151.1.9880) +
-                    s(NC_047151.1.10785) +
-                    s(NC_047163.1.29069872) +
-                    s(NC_047153.1.32675405) +
-                    s(NC_047153.1.32666785) +
-                    s(NC_047155.1.30745806) +
-                    s(NC_047155.1.30751619) +
-                    s(NC_047159.1.29166056) +
-                    s(NC_047159.1.29159906) +
-                    s(NC_047164.1.2171813) +
-                    s(NC_047174.1.21435010) +
-                    s(NC_047174.1.21430655) +
-                    s(NC_047172.1.26303009) +
-                    s(NC_047172.1.26307361) +
-                    s(NC_047172.1.26308364) +
-                    s(NC_047165.1.15408994) +
-                    s(NC_047165.1.910853) +
-                    s(NC_047167.1.11015458) +
-                    s(NC_047170.1.1470) +
-                    s(NC_047170.1.1540) +
-                    s(NC_047171.1.15408463) +
-                    s(NC_047171.1.25040373) +
-                    s(NC_047152.1.5986) +
-                    s(NC_047168.1.480431) +
-                    s(NC_047157.1.604941) +
-                    s(NC_047161.1.22201614) +
-                    s(NC_047169.1.16885311),
-                  data = testdf, method = "REML")
+# check for multi-colinearity
+library(mRMRe)
+library(mgcv)
+library(stats)
 
-# look at linearity and smooth factors
-summary(gam_model2)
-# k values are below edf so I think that's okay
-gam.check(gam_model2)
+CpGs <- testdf %>% dplyr::select(starts_with("NC"))
+Ages <- testdf$Age
+indivnames <- testdf$indivname
+sp_cors <- cor(CpGs,method = "spearman")
 
-# look at edf values to see linear vs. nonlinear
-#basic_summary$s.table
+probs <- which(sp_cors > 0.7, arr.ind = TRUE)
 
-## redo model with correct smooth factors based on edf values,
-# and remove factors zeroed by smoothing
-gam_model2 <- gam(Age ~ NC_047151.1.9880 +
-                    NC_047151.1.10785 +
-                    s(NC_047163.1.29069872) +
-                    NC_047153.1.32675405 +
-                    s(NC_047153.1.32666785) +
-                    s(NC_047155.1.30745806) +
-                    NC_047155.1.30751619 +
-                    NC_047159.1.29166056 +
-                    NC_047159.1.29159906 +
-                    NC_047164.1.2171813 +
-                    s(NC_047174.1.21435010) +
-                    NC_047174.1.21430655 +
-                    s(NC_047172.1.26303009) +
-                    s(NC_047172.1.26307361) +
-                    NC_047172.1.26308364 +
-                    NC_047165.1.15408994 +
-                    s(NC_047165.1.910853) +
-                    s(NC_047167.1.11015458) +
-                    s(NC_047170.1.1470) +
-                    NC_047170.1.1540 +
-                    s(NC_047171.1.15408463) +
-                    s(NC_047171.1.25040373) +
-                    s(NC_047152.1.5986) +
-                    NC_047168.1.480431 +
-                    s(NC_047157.1.604941) +
-                    NC_047161.1.22201614 +
-                    s(NC_047169.1.16885311),
-                  data = testdf, method = "REML")
-summary(gam_model2)
+probs1 <- data.frame(cpg1 = integer(0), cpg2 = integer(0), corval = integer(0))
 
-## redo model with correct smooth factors based on edf values
-gam_model3 <- gam(Age ~ NC_047153.1.32675405 +
-                    s(NC_047172.1.26303009) +
-                    NC_047168.1.480431 +
-                    NC_047161.1.22201614 +
-                    s(NC_047169.1.16885311) - 1,
-                  data = testdf, method = "REML")
+for (i in 1:nrow(probs)) {
+  if(probs[i,1] !=probs[i,2]){
+    val <- sp_cors[probs[i,1],probs[i,2]]
+    cpg1 <- rownames(sp_cors)[probs[i,1]]
+    cpg2 <- colnames(sp_cors)[probs[i,2]]
+    
+    newrow <- c(cpg1,cpg2,val)
+    
+    probs1 <- rbind(probs1,newrow)
+  }
+}
 
-# best model with age < 20
-gam_model3 <- gam(Age ~ s(NC_047163.1.29069872) +
-                    s(NC_047155.1.30745806) +
-                    NC_047159.1.29166056 +
-                    s(NC_047172.1.26303009) +
-                    NC_047165.1.15408994 +
-                    NC_047168.1.480431 +
-                    NC_047161.1.22201614 +
-                    NC_047169.1.16885311 - 1,
-                  data = testdf, method = "REML", select = T)
+## remove features that are repeating problems to start
+colnames(probs1) <- c("cpg1","cpg2","corval")
 
-gam_model3 <- gam(Age ~ NC_047151.1.9880 +
-                    s(NC_047172.1.26303009) +
-                    NC_047165.1.15408994 +
-                    s(NC_047152.1.5986) +
-                    NC_047168.1.480431 +
-                    NC_047161.1.22201614 +
-                    s(NC_047169.1.16885311) - 1,
-                  data = testdf, method = "REML")
+CpGs_red <- CpGs[,which(!(colnames(CpGs) %in% names(table(probs1$cpg2) >= 2)))]
+
+## try cor again and see how many are left
+sp_cors1 <- cor(CpGs_red,method = "spearman")
+probs_red <- which(sp_cors1 > 0.7, arr.ind = TRUE)
+
+table(probs_red[,1] != probs_red[,2])
+## all false, meaning the colinear CpGs are gone
+
+## run a huge gam model to check for concurvity
+#!# takes a while, comment out before knitting
+meta <- testdf %>% dplyr::select(indivname:DataType)
+CpGs_red <- cbind(meta,CpGs_red)
+
+# gam_concurv <- gam(Age ~ s(NC_047151.1.10551, bs="ts") +
+# s(NC_047151.1.45, bs="ts") +
+# s(NC_047151.1.7401, bs="ts") +
+# s(NC_047151.1.9880, bs="ts") +
+# s(NC_047152.1.11751, bs="ts") +
+# s(NC_047152.1.1306, bs="ts") +
+# s(NC_047153.1.32664060, bs="ts") +
+# s(NC_047153.1.32666836, bs="ts") +
+# s(NC_047153.1.32668125, bs="ts") +
+# s(NC_047155.1.24555900, bs="ts") +
+# s(NC_047155.1.30740795, bs="ts") +
+# s(NC_047155.1.30748169, bs="ts") +
+# s(NC_047157.1.604941, bs="ts") +
+# s(NC_047159.1.29159906, bs="ts") +
+# s(NC_047159.1.29160008, bs="ts") +
+# s(NC_047161.1.22201614, bs="ts") +
+# s(NC_047163.1.18713047, bs="ts") +
+# s(NC_047163.1.21495116, bs="ts") +
+# s(NC_047163.1.29031803, bs="ts") +
+# s(NC_047163.1.29066999, bs="ts") +
+# s(NC_047163.1.29069978, bs="ts") +
+# s(NC_047163.1.29070020, bs="ts") +
+# s(NC_047164.1.2171775, bs="ts") +
+# s(NC_047164.1.2171813, bs="ts") +
+# s(NC_047164.1.24801420, bs="ts") +
+# s(NC_047165.1.15408994, bs="ts") +
+# s(NC_047165.1.15411905, bs="ts") +
+# s(NC_047165.1.15412428, bs="ts") +
+# s(NC_047165.1.906817, bs="ts") +
+# s(NC_047165.1.906821, bs="ts") +
+# s(NC_047165.1.907148, bs="ts") +
+# s(NC_047165.1.908834, bs="ts") +
+# s(NC_047165.1.912498, bs="ts") +
+# s(NC_047167.1.11015458, bs="ts") +
+# s(NC_047168.1.480431, bs="ts") +
+# s(NC_047170.1.1470, bs="ts") +
+# s(NC_047170.1.1540, bs="ts") +
+# s(NC_047171.1.15408463, bs="ts") +
+# s(NC_047171.1.2287136, bs="ts") +
+# s(NC_047171.1.25040373, bs="ts") +
+# s(NC_047172.1.24804623, bs="ts") +
+# s(NC_047172.1.24835778, bs="ts") +
+# s(NC_047172.1.26288943, bs="ts") +
+# s(NC_047172.1.26289238, bs="ts") +
+# s(NC_047172.1.26290161, bs="ts") +
+# s(NC_047172.1.26290162, bs="ts") +
+# s(NC_047172.1.26294605, bs="ts") +
+# s(NC_047172.1.26305026, bs="ts") +
+# s(NC_047172.1.26305253, bs="ts") +
+# s(NC_047174.1.21422892, bs="ts") +
+# s(NC_047174.1.21423903, bs="ts") +
+# s(NC_047174.1.21425138, bs="ts") +
+# s(NC_047174.1.21427009, bs="ts") +
+# s(NC_047174.1.21428354, bs="ts") +
+# s(NC_047174.1.21431627, bs="ts") +
+# s(NC_047174.1.21434992, bs="ts") +
+# s(NC_047174.1.21435010, bs="ts") +
+# s(NC_047174.1.21435011, bs="ts") +
+# s(NC_047174.1.21435056, bs="ts"),
+# select = T,data = CpGs_red,method = "REML")
+# ```
+# 
+# ```{r}
+# concur <- concurvity(b=gam_concurv,full = F)
+# 
+# range(concur[["estimate"]])
+# hist(concur[["estimate"]])
+# 
+# which(concur[["estimate"]] > 0.9, arr.ind = TRUE)
+# 
+# summary(gam_concurv)
+
+# use concurvity model (since no vars were eliminated)
+# to linearize vars and eliminate non-significant vars that were not selected
+gam_reduce <- gam(Age ~ s(NC_047151.1.10551, bs="ts") +
+#s(NC_047151.1.45, bs="ts") +
+#s(NC_047151.1.7401, bs="ts") +
+s(NC_047151.1.9880, bs="ts") +
+#s(NC_047152.1.11751, bs="ts") +
+#s(NC_047152.1.1306, bs="ts") +
+s(NC_047153.1.32664060, bs="ts") +
+s(NC_047153.1.32666836, bs="ts") +
+s(NC_047153.1.32668125, bs="ts") +
+#s(NC_047155.1.24555900, bs="ts") +
+s(NC_047155.1.30740795, bs="ts") +
+#s(NC_047155.1.30748169, bs="ts") +
+#s(NC_047157.1.604941, bs="ts") +
+s(NC_047159.1.29159906, bs="ts") +
+#s(NC_047159.1.29160008, bs="ts") +
+s(NC_047161.1.22201614, bs="ts") +
+#s(NC_047163.1.18713047, bs="ts") +
+s(NC_047163.1.21495116, bs="ts") +
+#s(NC_047163.1.29031803, bs="ts") +
+#s(NC_047163.1.29066999, bs="ts") +
+#s(NC_047163.1.29069978, bs="ts") +
+#s(NC_047163.1.29070020, bs="ts") +
+#s(NC_047164.1.2171775, bs="ts") +
+s(NC_047164.1.2171813, bs="ts") +
+s(NC_047164.1.24801420, bs="ts") +
+s(NC_047165.1.15408994, bs="ts") +
+s(NC_047165.1.15411905, bs="ts") +
+#s(NC_047165.1.15412428, bs="ts") +
+#s(NC_047165.1.906817, bs="ts") +
+s(NC_047165.1.906821, bs="ts") +
+#s(NC_047165.1.907148, bs="ts") +
+s(NC_047165.1.908834, bs="ts") +
+s(NC_047165.1.912498, bs="ts") +
+s(NC_047167.1.11015458, bs="ts") +
+#s(NC_047168.1.480431, bs="ts") +
+s(NC_047170.1.1470, bs="ts") +
+#s(NC_047170.1.1540, bs="ts") +
+s(NC_047171.1.15408463, bs="ts") +
+s(NC_047171.1.2287136, bs="ts") +
+s(NC_047171.1.25040373, bs="ts") +
+#s(NC_047172.1.24804623, bs="ts") +
+s(NC_047172.1.24835778, bs="ts") +
+s(NC_047172.1.26288943, bs="ts") +
+#s(NC_047172.1.26289238, bs="ts") +
+#s(NC_047172.1.26290161, bs="ts") +
+#s(NC_047172.1.26290162, bs="ts") +
+#s(NC_047172.1.26294605, bs="ts") +
+s(NC_047172.1.26305026, bs="ts") +
+#s(NC_047172.1.26305253, bs="ts") +
+#s(NC_047174.1.21422892, bs="ts") +
+#s(NC_047174.1.21423903, bs="ts") +
+s(NC_047174.1.21425138, bs="ts") +
+s(NC_047174.1.21427009, bs="ts") +
+s(NC_047174.1.21428354, bs="ts") +
+s(NC_047174.1.21431627, bs="ts") +
+s(NC_047174.1.21434992, bs="ts") +
+#s(NC_047174.1.21435010, bs="ts") +
+s(NC_047174.1.21435011, bs="ts") +
+s(NC_047174.1.21435056, bs="ts"),
+select = T,data = CpGs_red,method = "REML")
+
+summary(gam_reduce)
+
+## take out non-sig factors
+gam_reduce <- gam(Age ~ s(NC_047151.1.10551, bs="ts") +
+NC_047151.1.9880 +
+#s(NC_047153.1.32664060, bs="ts") +
+NC_047153.1.32666836 +
+NC_047153.1.32668125 +
+NC_047155.1.30740795 +
+NC_047159.1.29159906+
+NC_047161.1.22201614 +
+NC_047163.1.21495116 +
+NC_047164.1.2171813 +
+NC_047164.1.24801420 +
+NC_047165.1.15408994 +
+NC_047165.1.15411905 +
+s(NC_047165.1.906821, bs="ts") +
+NC_047165.1.908834 +
+NC_047165.1.912498 +
+s(NC_047167.1.11015458, bs="ts") +
+#s(NC_047170.1.1470, bs="ts") +
+NC_047171.1.15408463 +
+NC_047171.1.2287136 +
+NC_047171.1.25040373 +
+s(NC_047172.1.24835778, bs="ts") +
+#s(NC_047172.1.26288943, bs="ts") +
+s(NC_047172.1.26305026, bs="ts") +
+NC_047174.1.21425138 +
+NC_047174.1.21427009 +
+NC_047174.1.21428354 +
+NC_047174.1.21431627 +
+s(NC_047174.1.21434992, bs="ts") +
+NC_047174.1.21435011 +
+NC_047174.1.21435056,
+select = T,data = CpGs_red,method = "REML")
+
+CpGs_red$ObsSex <- as.factor(CpGs_red$ObsSex)
+## set model with significant factors
+gam_model3 <- gam(Age ~ s(NC_047151.1.10551, bs="ts") +
+#NC_047151.1.9880 +
+#NC_047153.1.32666836 +
+#NC_047153.1.32668125 +
+#NC_047155.1.30740795 +
+NC_047159.1.29159906+
+NC_047161.1.22201614 +
+#NC_047163.1.21495116 +
+NC_047164.1.2171813 +
+NC_047164.1.24801420 +
+#NC_047165.1.15408994 +
+NC_047165.1.15411905 +
+#s(NC_047165.1.906821, bs="ts") +
+#NC_047165.1.908834 +
+#NC_047165.1.912498 +
+s(NC_047167.1.11015458, bs="ts") +
+#NC_047171.1.15408463 +
+#NC_047171.1.2287136 +
+NC_047171.1.25040373 +
+s(NC_047172.1.24835778, bs="ts") +
+s(NC_047172.1.26305026, bs="ts") +
+NC_047174.1.21425138 +
+NC_047174.1.21427009 +
+#NC_047174.1.21428354 +
+NC_047174.1.21431627 +
+s(NC_047174.1.21434992, bs="ts") +
+NC_047174.1.21435011 +
+NC_047174.1.21435056 - 1, data = CpGs_red,method = "REML")
+
+# OLD: best model with all ages
+# gam_model3 <- gam(Age ~ #NC_047151.1.9880 +
+#                     s(NC_047152.1.5986) +
+#                     s(NC_047163.1.29069872) +
+#                     s(NC_047155.1.30745806) +
+#                     #NC_047159.1.29166056 +
+#                     s(NC_047172.1.26303009) +
+#                     NC_047165.1.15408994 +
+#                     #NC_047168.1.480431 +
+#                     NC_047161.1.22201614 +
+#                     NC_047169.1.16885311 - 1,
+#                   data = testdf, method = "REML", select = T)
 
 summary(gam_model3)
+```
 
-# try predictions just to see
+
+```{r}
+# predict epiage using the selected model
 predictions2 = predict(gam_model3,type = 'response',se = TRUE)
 
-df_preds = data.frame(indivname=testdf$indivname,testdf$Age, predictions2) %>%
+predictions2[["numb"]] <- names(predictions2$fit)
+
+df_preds = data.frame(indivname=CpGs_red$indivname,CpGs_red$Age)
+df_preds <- df_preds[as.numeric(predictions2[["numb"]]),] %>% 
+  mutate(fit = predictions2[["fit"]],
+         se.fit = predictions2[["se.fit"]]) %>% 
   mutate(lower = fit - 1.96 * se.fit,
          upper = fit + 1.96 * se.fit) %>% 
   left_join(sexdata)
 
 # save data in same
-gam_res <- data.frame(indivname=testdf$indivname,
-                       ObsSex=testdf$ObsSex,
-                       Length=testdf$Length,
-                       Age=testdf$Age,
-                       EpiAge=predictions2$fit,
-                       type="Test")
+gam_res <- data.frame(df_preds,type="Test") %>% 
+  dplyr::rename(EpiAge=fit) %>% 
+  dplyr::select(-CpGs_red.Age)
 
 gam_res$SampleSet <- "Combined"
 gam_res$ModelType <- "GAM"
 
+
 # calculate MAE
-median(abs(df_preds$testdf.Age - df_preds$fit))
-cor.test(df_preds$testdf.Age, df_preds$fit)
-ggplot(aes(x = testdf.Age, y = fit,color = as.factor(ObsSex)), data = df_preds) +
+median(abs(df_preds$Age - df_preds$fit))
+cor.test(df_preds$Age, df_preds$fit)
+
+library(gratia)
+draw(gam_model3)
+
+# get estimates for the plot
+smooth_estimates(gam_model3)
+
+## plot data
+ggplot(aes(x = Age, y = fit,color = as.factor(ObsSex)), data = df_preds) +
   geom_point(size = 2)+
   ylim(0, 30) + xlim(0, 30) +
   geom_abline(slope = 1,intercept = 0)+
@@ -417,16 +471,15 @@ ggplot(aes(x = testdf.Age, y = fit,color = as.factor(ObsSex)), data = df_preds) 
 
 ```
 
-
 ```{r}
-# save predictions for figures
-preds_comb <- rbind(res_comb_all,glm_res,gam_res)
-write.csv(preds_comb,file = "PredsComb_BestModels.csv",quote = F,row.names = F, append = F)
+
 ```
 
 
 
-
-
-
+```{r}
+# save predictions for figures
+preds_comb <- full_join(res_comb_all,gam_res)
+write.csv(preds_comb,file = "PredsOnly_BestModels.csv",quote = F,row.names = F,append = F)
+```
 

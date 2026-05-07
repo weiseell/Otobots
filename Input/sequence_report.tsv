@@ -1,0 +1,58 @@
+Assembly Accession	Assembly-unit name	Chromosome name	GC Count	GC Percent	GenBank seq accession	Molecule type	Ordering	RefSeq seq accession	Role	Seq length	UCSC style name	Unlocalized Count	Sequence name
+GCF_009819705.1	Primary Assembly	1	12692293	42	CM020190.1	Chromosome		NC_047151.1	assembled-molecule	30597443			S9
+GCF_009819705.1	Primary Assembly	2	4990287	44	CM020191.1	Chromosome		NC_047152.1	assembled-molecule	11297635			S24
+GCF_009819705.1	Primary Assembly	3	13490800	41.5	CM020192.1	Chromosome		NC_047153.1	assembled-molecule	32675587			S1
+GCF_009819705.1	Primary Assembly	4	11909600	42	CM020193.1	Chromosome		NC_047154.1	assembled-molecule	28512877			S7
+GCF_009819705.1	Primary Assembly	5	12755273	42	CM020194.1	Chromosome		NC_047155.1	assembled-molecule	30753830			S2
+GCF_009819705.1	Primary Assembly	6	11946579	42	CM020195.1	Chromosome		NC_047156.1	assembled-molecule	28531750			S4
+GCF_009819705.1	Primary Assembly	7	11922083	42	CM020196.1	Chromosome		NC_047157.1	assembled-molecule	28364880			S6
+GCF_009819705.1	Primary Assembly	8	10016915	42.5	CM020197.1	Chromosome		NC_047158.1	assembled-molecule	23524515			S15
+GCF_009819705.1	Primary Assembly	9	12208981	42	CM020198.1	Chromosome		NC_047159.1	assembled-molecule	29170869			S3
+GCF_009819705.1	Primary Assembly	10	11529507	42	CM020199.1	Chromosome		NC_047160.1	assembled-molecule	27686247			S5
+GCF_009819705.1	Primary Assembly	11	9452009	42.5	CM020200.1	Chromosome		NC_047161.1	assembled-molecule	22214583			S12
+GCF_009819705.1	Primary Assembly	12	8955734	42	CM020201.1	Chromosome		NC_047162.1	assembled-molecule	21256114			S18
+GCF_009819705.1	Primary Assembly	13	12178836	42	CM020202.1	Chromosome		NC_047163.1	assembled-molecule	29083852			S22
+GCF_009819705.1	Primary Assembly	14	10347546	42	CM020203.1	Chromosome		NC_047164.1	assembled-molecule	24953334			S11
+GCF_009819705.1	Primary Assembly	15	10614894	42	CM020204.1	Chromosome		NC_047165.1	assembled-molecule	25621292			S16
+GCF_009819705.1	Primary Assembly	16	11428990	42	CM020205.1	Chromosome		NC_047166.1	assembled-molecule	27148517			S8
+GCF_009819705.1	Primary Assembly	17	10416465	42	CM020206.1	Chromosome		NC_047167.1	assembled-molecule	24735652			S10
+GCF_009819705.1	Primary Assembly	18	7141621	43	CM020207.1	Chromosome		NC_047168.1	assembled-molecule	16627714			S23
+GCF_009819705.1	Primary Assembly	19	8892872	42.5	CM020208.1	Chromosome		NC_047169.1	assembled-molecule	20912647			S19
+GCF_009819705.1	Primary Assembly	20	8863653	42.5	CM020209.1	Chromosome		NC_047170.1	assembled-molecule	20800843			S20
+GCF_009819705.1	Primary Assembly	21	10410781	42	CM020210.1	Chromosome		NC_047171.1	assembled-molecule	25055940			S13
+GCF_009819705.1	Primary Assembly	22	11012709	42.5	CM020211.1	Chromosome		NC_047172.1	assembled-molecule	26312018			S14
+GCF_009819705.1	Primary Assembly	23	7849372	43	CM020212.1	Chromosome		NC_047173.1	assembled-molecule	18431247			S21
+GCF_009819705.1	Primary Assembly	24	8994459	42.5	CM020213.1	Chromosome		NC_047174.1	assembled-molecule	21435488			S17
+GCF_009819705.1	Primary Assembly	Un			WOYB01000025.1	Chromosome		NW_022986819.1	unplaced-scaffold	9476			scaffold_100_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000026.1	Chromosome		NW_022986820.1	unplaced-scaffold	7199			scaffold_101_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000027.1	Chromosome		NW_022986821.1	unplaced-scaffold	6352			scaffold_102_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000028.1	Chromosome		NW_022986822.1	unplaced-scaffold	5353			scaffold_103_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000029.1	Chromosome		NW_022986823.1	unplaced-scaffold	5180			scaffold_104_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000030.1	Chromosome		NW_022986824.1	unplaced-scaffold	1578			scaffold_105_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000031.1	Chromosome		NW_022986825.1	unplaced-scaffold	1459			scaffold_106_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000032.1	Chromosome		NW_022986826.1	unplaced-scaffold	137251			scaffold_54_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000033.1	Chromosome		NW_022986827.1	unplaced-scaffold	107378			scaffold_65_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000034.1	Chromosome		NW_022986828.1	unplaced-scaffold	80850			scaffold_69_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000035.1	Chromosome		NW_022986829.1	unplaced-scaffold	69446			scaffold_71_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000036.1	Chromosome		NW_022986830.1	unplaced-scaffold	64821			scaffold_73_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000037.1	Chromosome		NW_022986831.1	unplaced-scaffold	53407			scaffold_74_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000038.1	Chromosome		NW_022986832.1	unplaced-scaffold	51591			scaffold_76_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000039.1	Chromosome		NW_022986833.1	unplaced-scaffold	43306			scaffold_79_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000040.1	Chromosome		NW_022986834.1	unplaced-scaffold	42487			scaffold_81_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000041.1	Chromosome		NW_022986835.1	unplaced-scaffold	41078			scaffold_82_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000042.1	Chromosome		NW_022986836.1	unplaced-scaffold	36870			scaffold_84_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000043.1	Chromosome		NW_022986837.1	unplaced-scaffold	33246			scaffold_85_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000044.1	Chromosome		NW_022986838.1	unplaced-scaffold	27139			scaffold_86_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000045.1	Chromosome		NW_022986839.1	unplaced-scaffold	26166			scaffold_87_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000046.1	Chromosome		NW_022986840.1	unplaced-scaffold	26121			scaffold_88_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000047.1	Chromosome		NW_022986841.1	unplaced-scaffold	24448			scaffold_89_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000048.1	Chromosome		NW_022986842.1	unplaced-scaffold	24841			scaffold_90_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000049.1	Chromosome		NW_022986843.1	unplaced-scaffold	22290			scaffold_92_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000050.1	Chromosome		NW_022986844.1	unplaced-scaffold	21680			scaffold_93_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000051.1	Chromosome		NW_022986845.1	unplaced-scaffold	20009			scaffold_94_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000052.1	Chromosome		NW_022986846.1	unplaced-scaffold	19576			scaffold_95_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000053.1	Chromosome		NW_022986847.1	unplaced-scaffold	19330			scaffold_96_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000054.1	Chromosome		NW_022986848.1	unplaced-scaffold	15289			scaffold_97_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000055.1	Chromosome		NW_022986849.1	unplaced-scaffold	14845			scaffold_98_arrow_ctg1
+GCF_009819705.1	Primary Assembly	Un			WOYB01000056.1	Chromosome		NW_022986850.1	unplaced-scaffold	10133			scaffold_99_arrow_ctg1
+GCF_009819705.1	non-nuclear	MT	8082	46	AM749122.1	Mitochondrion		NC_009709.1	assembled-molecule	17546			MT

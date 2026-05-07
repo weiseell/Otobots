@@ -37,7 +37,7 @@ allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_009709.1",
 # remove sex-det and inversion chromosomes
 allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047158.1",
                                     colnames(allCpGs1),perl = T)))]
-allCpGs1 <- allCpGs1[,which(!(grepl(pattern = "NC_047162.1",
+allCpGs1_inv <- allCpGs1[,which((grepl(pattern = "NC_047162.1",
                                     colnames(allCpGs1),perl = T)))]
 
 allCpGs1 <- allCpGs1 %>% dplyr::select(-filename)
@@ -48,16 +48,15 @@ We log age data prior to running the model, and the CpG selected is repeated 100
 ```{r}
 #log age data
 sexdata1 <- sexdata %>% 
-  filter(Age <= 20 & DataType == "Wild") %>% 
+  filter(Age <= 20 & DataType == "Wild" & ObsSex == 2) %>% 
   mutate(LogAge = log(Age),LogLen = log(Length))
 
-# run with just ages 16-29, subset to Methyl 2025 samples
 CpGsMeta <- sexdata1 %>% left_join(allCpGs1) %>% filter(DataType == "Wild" & Age <= 20)
 ```
 
 ```{r}
 #create blank objects for storing outputs in loop
-modelout <- data.frame(matrix(data = NA,nrow = 1000, ncol = 5))
+modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 6))
 colnames(modelout) <- c("rep","Train_cor","Test_cor","Train_MAE","Test_MAE","lambda.1se")
 CpGlist <- list()
 
@@ -69,7 +68,7 @@ predout <- data.frame(indivname = sexdata1$indivname,
 ```{r}
 ##Loop for glmnet testing with all CpG sites ####
 i <- 1
-for (i in 1:1000) {
+for (i in 1:100) {
   print(i)
   #set a different seed so different train/test and a separate model are constructed
   set.seed(Sys.time())
@@ -86,7 +85,7 @@ for (i in 1:1000) {
   y <- as.matrix(trainpick$LogAge)
   x <- as.matrix(dplyr::select(trainpick,starts_with("NC")))
   
-  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 10,type.measure = "mae")
+  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,type.measure = "mae")
   coef.allCpG <- as.matrix(coef(model1,s = "lambda.1se"))
   
   bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
@@ -134,7 +133,7 @@ hist(modelout$Test_cor)
 
 #concatenate all the best CpGs
 CpGlist_best <- c()
-for (i in 1:1000) {
+for (i in 1:100) {
   tmpCpG <- CpGlist[[i]]
   names(tmpCpG) <- rep(i,times = length(tmpCpG))
   CpGlist_best <- c(CpGlist_best,tmpCpG)
@@ -148,26 +147,23 @@ table(counting$n)
 
 top_CpG_group <- counting %>% 
   arrange(desc(n)) %>% 
-  filter(n > 100)
+  filter(n > 20)
 
-best_corrs <- modelout %>% 
-  mutate(rep=seq(from = 1, to = nrow(modelout)),ttdiff = abs(Train_MAE-Test_MAE)) %>% 
-  arrange(ttdiff) %>% 
-  slice_head(n=20)
+#best_corrs <- modelout %>% 
+#  mutate(rep=seq(from = 1, to = nrow(modelout)),ttdiff = abs(Train_MAE-Test_MAE)) %>% 
+#  arrange(ttdiff) %>% 
+#  slice_head(n=20)
 
-bestCpG = unique(CpGlist_best[which(names(CpGlist_best) %in% best_corrs$rep)])
+#bestCpG = unique(CpGlist_best[which(names(CpGlist_best) %in% best_corrs$rep)])
 
-best_corrsCpG <- data.frame(CpGlist_best=bestCpG,type="Age")
-top_CpG_group$CpGlist_best %in% best_corrsCpG$CpGlist_best
-best_corrsCpG$CpGlist_best %in% top_CpG_group$CpGlist_best
-
+best_corrsCpG <- data.frame(top_CpG_group,type="Age")
 #!# keep best_corrs list
 ```
 
 ## Repeat Loop with Length
 ```{r}
 #create blank objects for storing outputs in loop
-modelout <- data.frame(matrix(data = NA,nrow = 1000, ncol = 6))
+modelout <- data.frame(matrix(data = NA,nrow = 100, ncol = 6))
 colnames(modelout) <- c("rep","Train_cor","Test_cor","Train_MAE","Test_MAE","lambda.1se")
 CpGlist <- list()
 
@@ -176,7 +172,7 @@ predout <- data.frame(indivname = sexdata1$indivname,
 
 ##Loop for glmnet testing with all CpG sites ####
 i <- 1
-for (i in 1:1000) {
+for (i in 1:100) {
   #print(i)
   set.seed(Sys.time())
   
@@ -193,7 +189,7 @@ for (i in 1:1000) {
   y <- trainpick$LogLen
   x <- as.matrix(dplyr::select(trainpick,starts_with("NC")))
   
-  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,nfolds = 10,type.measure = "mae")
+  model1 <- cv.glmnet(x,y,family = "gaussian",alpha = 0.5,type.measure = "mae")
   coef.allCpG <- as.matrix(coef(model1,s = "lambda.1se"))
   
   bestCpGnames <- names(coef.allCpG[which(coef.allCpG > 0),])
@@ -242,10 +238,12 @@ hist(modelout$Test_cor)
 
 #concatenate all the best CpGs
 CpGlist_best_len <- c()
-for (i in 1:1000) {
+for (i in 1:100) {
   tmpCpG <- CpGlist[[i]]
-  names(tmpCpG) <- rep(i,times = length(tmpCpG))
-  CpGlist_best_len <- c(CpGlist_best_len,tmpCpG)
+  if(length(tmpCpG) > 0){
+   names(tmpCpG) <- rep(i,times = length(tmpCpG))
+    CpGlist_best_len <- c(CpGlist_best_len,tmpCpG) 
+  }
 }
 
 counting <- data.frame(CpGlist_best_len) %>% 
@@ -256,27 +254,30 @@ table(counting$n)
 
 top_CpG_group <- counting %>% 
   arrange(desc(n)) %>% 
-  filter(n > 100)
+  filter(n > 20)
 
-best_corrs_len <- modelout %>% 
-  mutate(rep=seq(from = 1, to = nrow(modelout)),ttdiff = abs(Train_MAE-Test_MAE)) %>% 
-  arrange(ttdiff) %>% 
-  slice_head(n=20)
+#best_corrs_len <- modelout %>% 
+#  mutate(rep=seq(from = 1, to = nrow(modelout)),ttdiff = abs(Train_MAE-Test_MAE)) %>% 
+#  arrange(ttdiff) %>% 
+#  slice_head(n=20)
 
-bestCpG_len = unique(CpGlist_best_len[which(names(CpGlist_best_len) %in% best_corrs_len$rep)])
+#bestCpG_len = unique(CpGlist_best_len[which(names(CpGlist_best_len) %in% best_corrs_len$rep)])
 
-best_corrsCpG_len <- data.frame(CpGlist_best=bestCpG_len,type="Length")
-top_CpG_group$CpGlist_best_len %in% best_corrsCpG_len$CpGlist_best_len
-best_corrsCpG_len$CpGlist_best_len %in% top_CpG_group$CpGlist_best_len
+best_corrsCpG_len <- data.frame(top_CpG_group,type="Length")
+#top_CpG_group$CpGlist_best_len %in% best_corrsCpG_len$CpGlist_best_len
+#best_corrsCpG_len$CpGlist_best_len %in% top_CpG_group$CpGlist_best_len
 
 #!# keep best_corrs list
 ```
 
 ## Concatenate the best CpGs across replicates
 ```{r}
+colnames(best_corrsCpG) <- c("CpGlist_best","n","type")
+colnames(best_corrsCpG_len) <- c("CpGlist_best","n","type")
+
 CpGlist_best_comb <- unique(rbind(best_corrsCpG,best_corrsCpG_len))
 
-write.csv(CpGlist_best_comb,file = "Output/CpGList_LengthAge_MAEBestModels.csv",row.names = F)
+write.csv(CpGlist_best_comb,file = "Output/CpGList_LengthAge_MAEBestModels_FemaleOnly.csv",row.names = F)
 ```
 
 ## Figures
